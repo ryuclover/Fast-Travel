@@ -34,7 +34,9 @@ interface RegistroRateLimit {
 
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX_REQUESTS = 10
+const MAX_DATA_BUSCA_DIAS = 365
 const registrosRateLimit = new Map<string, RegistroRateLimit>()
+let proximaLimpezaRateLimit = 0
 
 // Função para formatar slug de cidade
 function formatarSlug(cidade: string): string {
@@ -73,14 +75,23 @@ function obterIpDaRequisicao(request: NextRequest): string {
     if (primeiroIp) return primeiroIp
   }
 
-  return request.headers.get("x-real-ip") || "unknown"
+  const realIp = request.headers.get("x-real-ip")
+  if (realIp) return realIp
+
+  const userAgent = request.headers.get("user-agent")?.trim()
+  if (userAgent) return `anon:${userAgent.toLowerCase().slice(0, 120)}`
+
+  return "anon:sem-identificacao"
 }
 
 function validarRateLimit(ip: string): boolean {
   const agora = Date.now()
 
-  for (const [chave, registro] of registrosRateLimit.entries()) {
-    if (registro.resetAt <= agora) registrosRateLimit.delete(chave)
+  if (agora >= proximaLimpezaRateLimit) {
+    for (const [chave, registro] of registrosRateLimit.entries()) {
+      if (registro.resetAt <= agora) registrosRateLimit.delete(chave)
+    }
+    proximaLimpezaRateLimit = agora + RATE_LIMIT_WINDOW_MS
   }
 
   const atual = registrosRateLimit.get(ip)
@@ -113,7 +124,7 @@ function validarDataBusca(data: string): boolean {
 
   const hoje = new Date()
   const hojeUtc = Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate())
-  const maxUtc = hojeUtc + 365 * 24 * 60 * 60 * 1000
+  const maxUtc = hojeUtc + MAX_DATA_BUSCA_DIAS * 24 * 60 * 60 * 1000
   const dataUtc = Date.UTC(
     dataSolicitada.getUTCFullYear(),
     dataSolicitada.getUTCMonth(),
