@@ -27,6 +27,19 @@ interface FonteBusca {
   requerLogin?: boolean
 }
 
+interface RegistroRateLimit {
+  count: number
+  resetAt: number
+}
+
+const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_MAX_REQUESTS = 10
+const MAX_DATA_BUSCA_DIAS = 365
+const MAX_USER_AGENT_LENGTH = 120
+const MS_POR_DIA = 24 * 60 * 60 * 1000
+const registrosRateLimit = new Map<string, RegistroRateLimit>()
+let proximaLimpezaRateLimit = 0
+
 // Função para formatar slug de cidade
 function formatarSlug(cidade: string): string {
   return cidade
@@ -55,6 +68,72 @@ function normalizarTexto(valor: string): string {
 
 function montarChaveCidade(nome: string, uf: string): string {
   return `${normalizarTexto(nome)}::${uf.trim().toUpperCase()}`
+}
+
+function obterIpDaRequisicao(request: NextRequest): string | null {
+  const forwardedFor = request.headers.get("x-forwarded-for")
+  if (forwardedFor) {
+    const primeiroIp = forwardedFor.split(",")[0]?.trim()
+    if (primeiroIp) return primeiroIp
+  }
+
+  const realIp = request.headers.get("x-real-ip")
+  if (realIp) return realIp
+
+  if (process.env.NODE_ENV === "production") return null
+
+  const userAgent = request.headers.get("user-agent")?.trim() || "sem-identificacao"
+  return `dev:${userAgent.toLowerCase().slice(0, MAX_USER_AGENT_LENGTH)}`
+}
+
+function validarRateLimit(ip: string): boolean {
+  const agora = Date.now()
+
+  if (agora >= proximaLimpezaRateLimit) {
+    for (const [chave, registro] of registrosRateLimit.entries()) {
+      if (registro.resetAt <= agora) registrosRateLimit.delete(chave)
+    }
+    proximaLimpezaRateLimit = agora + RATE_LIMIT_WINDOW_MS
+  }
+
+  const atual = registrosRateLimit.get(ip)
+  if (!atual || atual.resetAt <= agora) {
+    registrosRateLimit.set(ip, { count: 1, resetAt: agora + RATE_LIMIT_WINDOW_MS })
+    return true
+  }
+
+  if (atual.count >= RATE_LIMIT_MAX_REQUESTS) return false
+
+  atual.count += 1
+  registrosRateLimit.set(ip, atual)
+  return true
+}
+
+function validarDataBusca(data: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return false
+
+  const dataSolicitada = new Date(`${data}T00:00:00.000Z`)
+  if (Number.isNaN(dataSolicitada.getTime())) return false
+
+  const [ano, mes, dia] = data.split("-").map((segmento) => Number.parseInt(segmento, 10))
+  if (
+    dataSolicitada.getUTCFullYear() !== ano ||
+    dataSolicitada.getUTCMonth() + 1 !== mes ||
+    dataSolicitada.getUTCDate() !== dia
+  ) {
+    return false
+  }
+
+  const hoje = new Date()
+  const hojeUtc = Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate())
+  const maxUtc = hojeUtc + MAX_DATA_BUSCA_DIAS * MS_POR_DIA
+  const dataUtc = Date.UTC(
+    dataSolicitada.getUTCFullYear(),
+    dataSolicitada.getUTCMonth(),
+    dataSolicitada.getUTCDate()
+  )
+
+  return dataUtc >= hojeUtc && dataUtc <= maxUtc
 }
 
 const cidadesPermitidas = new Set(
@@ -441,9 +520,13 @@ async function buscarPassagens(origem: string, destino: string, data: string, or
   const concorrenciaMaxima = 3
 
   const puppeteer = await import("puppeteer")
+  const desabilitarSandbox = process.env.PUPPETEER_DISABLE_SANDBOX === "true"
+  const argsChromium = desabilitarSandbox
+    ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+    : ["--disable-dev-shm-usage"]
   const browser = await puppeteer.launch({
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+    args: argsChromium,
   })
 
   try {
@@ -491,6 +574,21 @@ async function buscarPassagens(origem: string, destino: string, data: string, or
 }
 
 export async function GET(request: NextRequest) {
+  const ip = obterIpDaRequisicao(request)
+  if (!ip) {
+    return NextResponse.json(
+      { error: "Não foi possível identificar o cliente para aplicar limite de uso." },
+      { status: 400 }
+    )
+  }
+
+  if (!validarRateLimit(ip)) {
+    return NextResponse.json(
+      { error: "Muitas consultas em pouco tempo. Aguarde e tente novamente." },
+      { status: 429 }
+    )
+  }
+
   const searchParams = request.nextUrl.searchParams
   const origem = searchParams.get("origem")
   const destino = searchParams.get("destino")
@@ -500,6 +598,13 @@ export async function GET(request: NextRequest) {
   
   if (!origem || !destino || !data) {
     return NextResponse.json({ error: "Parâmetros obrigatórios: origem, destino, data" }, { status: 400 })
+  }
+
+  if (!validarDataBusca(data)) {
+    return NextResponse.json(
+      { error: "Data inválida. Use o formato YYYY-MM-DD e uma data entre hoje e 1 ano no futuro." },
+      { status: 400 }
+    )
   }
 
   if (!validarCidadePermitida(origem, origemUF) || !validarCidadePermitida(destino, destinoUF)) {
