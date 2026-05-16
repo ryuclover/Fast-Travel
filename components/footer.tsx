@@ -19,10 +19,10 @@ export function Footer() {
               <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
                 <Bus className="w-4 h-4 text-primary-foreground" />
               </div>
-              <span className="font-bold">ID<span className="text-primary">Jovem</span>Bus</span>
+              <span className="font-bold">FastTravel</span>
             </div>
             <p className="text-sm text-muted-foreground max-w-md">
-              Buscamos vagas gratuitas do ID Jovem em diversos sites de passagens de ônibus para facilitar sua viagem.
+              Buscamos passagens e promoções em diversos sites de transporte para facilitar sua viagem.
             </p>
           </div>
 

@@ -7,8 +7,8 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'IDJovemBus - Passagens Gratuitas ID Jovem',
-  description: 'Encontre vagas gratuitas de passagens de ônibus para beneficiários do ID Jovem',
+  title: 'FastTravel - Busca de passagens de ônibus',
+  description: 'Busque passagens de ônibus e promoções em vários sites de transporte.',
   generator: 'v0.app',
   icons: {
     icon: [

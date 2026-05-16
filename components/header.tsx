@@ -11,9 +11,9 @@ export function Header() {
             </div>
             <div className="flex flex-col">
               <span className="font-bold text-lg leading-tight">
-                ID<span className="text-primary">Jovem</span>Bus
+                FastTravel
               </span>
-              <span className="text-xs text-muted-foreground leading-tight">Passagens gratuitas</span>
+              <span className="text-xs text-muted-foreground leading-tight">Busca de passagens de ônibus</span>
             </div>
           </div>
 

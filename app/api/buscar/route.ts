@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import type { Browser, Page } from "puppeteer"
 import { cidadesSugeridas } from "@/lib/cidades-sugeridas"
+import { scrapeClickBus, type ClickBusScrapeResult } from "@/lib/scrapers/clickbus"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -16,7 +17,9 @@ interface Passagem {
   partida: string
   chegada: string
   duracao: string
+  valor?: string
   vagasIdJovem: number
+  vagasIdJovem100: number
   linkCompra: string
 }
 
@@ -149,14 +152,16 @@ function inferirQuantidadeVagas(textoPagina: string): number {
   const semVagaRegex = /(sem\s+vagas?|esgotad[oa]s?|indisponivel|nao\s+ha\s+vagas?)/
   if (semVagaRegex.test(texto)) return 0
 
-  const matchQuantidade = texto.match(/(\d{1,2})\s+vagas?/)
+  const encontrouIdJovem100 = /id\s*jovem[\s\S]{0,80}100%/.test(texto)
+  if (!encontrouIdJovem100) return 0
+
+  const matchQuantidade = texto.match(/(\d{1,2})\s*dispon(?:ivel|iveis)/)
   if (matchQuantidade) {
     const quantidade = Number.parseInt(matchQuantidade[1], 10)
-    if (Number.isFinite(quantidade) && quantidade > 0) return Math.min(quantidade, 3)
+    if (Number.isFinite(quantidade) && quantidade > 0) return Math.min(quantidade, 2)
   }
 
-  const encontrouSinalPositivo = /(id\s*jovem|gratuidade|gratuity|vaga\s+gratuita|beneficio)/.test(texto)
-  return encontrouSinalPositivo ? 1 : 0
+  return 0
 }
 
 function extrairVagasCategoriaIdJovem(textoPagina: string, percentual: "100%" | "50%"): number {
@@ -169,7 +174,7 @@ function extrairVagasCategoriaIdJovem(textoPagina: string, percentual: "100%" | 
   const matchPrincipal = texto.match(regexPrincipal)
   if (matchPrincipal?.[1]) {
     const vagas = Number.parseInt(matchPrincipal[1], 10)
-    if (Number.isFinite(vagas) && vagas >= 0) return vagas
+    if (Number.isFinite(vagas) && vagas >= 0) return Math.min(vagas, 2)
   }
 
   const regexAlternativo = new RegExp(
@@ -178,10 +183,14 @@ function extrairVagasCategoriaIdJovem(textoPagina: string, percentual: "100%" | 
   const matchAlternativo = texto.match(regexAlternativo)
   if (matchAlternativo?.[1]) {
     const vagas = Number.parseInt(matchAlternativo[1], 10)
-    if (Number.isFinite(vagas) && vagas >= 0) return vagas
+    if (Number.isFinite(vagas) && vagas >= 0) return Math.min(vagas, 2)
   }
 
   return 0
+}
+
+function extrairVagasIdJovem100DoTexto(textoPagina: string): number {
+  return extrairVagasCategoriaIdJovem(textoPagina, "100%")
 }
 
 function extrairVagasIdJovemDoTexto(textoPagina: string): number {
@@ -190,18 +199,53 @@ function extrairVagasIdJovemDoTexto(textoPagina: string): number {
   return vagas100 + vagas50
 }
 
+async function extrairVagasIdJovemDoBotaoCardClickBus(page: Page): Promise<number | null> {
+  return page.evaluate(() => {
+    const elementos = Array.from(document.querySelectorAll("button, [role='button'], div, span"))
+      .filter((el) => {
+        const texto = (el.textContent || "").toLowerCase()
+        return texto.includes("id jovem") && texto.includes("100%")
+      })
+
+    for (const elemento of elementos) {
+      const texto = (elemento.textContent || "").toLowerCase()
+      const matchDisponiveis = texto.match(/(\d{1,2})\s*dispon(?:ivel|iveis)/)
+      if (matchDisponiveis) {
+        const vagas = Number.parseInt(matchDisponiveis[1], 10)
+        if (Number.isFinite(vagas)) return Math.min(vagas, 2)
+      }
+
+      const matchCategoria = texto.match(/id\s*jovem\s*\(\s*100%\s*\)[^\d]*(\d{1,2})/)
+      if (matchCategoria) {
+        const vagas = Number.parseInt(matchCategoria[1], 10)
+        if (Number.isFinite(vagas)) return Math.min(vagas, 2)
+      }
+    }
+
+    return null
+  })
+}
+
 function paginaExigeLogin(textoPagina: string): boolean {
   const texto = normalizarTexto(textoPagina)
   return /(faca\s+login|fa(c|ç)a\s+login|entrar\s+com|acessar\s+conta|minha\s+conta|cadastre-se|cadastre\s+se|login\s+obrigatorio)/.test(texto)
 }
 
 // Gera links de busca para cada site
-function gerarLinksBusca(origem: string, destino: string, data: string, origemUF: string, destinoUF: string) {
+function gerarLinksBusca(origem: string, destino: string, data: string, origemUF: string, destinoUF: string, idJovem: boolean) {
   const origemSlug = formatarSlug(origem)
   const destinoSlug = formatarSlug(destino)
   
+  const clickbusUrl = new URL(
+    `https://www.clickbus.com.br/onibus/${origemSlug}-${origemUF.toLowerCase()}-todos/${destinoSlug}-${destinoUF.toLowerCase()}-todos`
+  )
+  clickbusUrl.searchParams.set("departureDate", data)
+  if (idJovem) {
+    clickbusUrl.searchParams.set("gratuity", "true")
+  }
+
   return {
-    clickbus: `https://www.clickbus.com.br/onibus/${origemSlug}-${origemUF.toLowerCase()}-todos/${destinoSlug}-${destinoUF.toLowerCase()}?departureDate=${data}&gratuity=true`,
+    clickbus: clickbusUrl.toString(),
     embarca: `https://www.embarca.ai/passagem-de-onibus/${origemSlug}-${origemUF.toLowerCase()}-todos/${destinoSlug}-${destinoUF.toLowerCase()}?departure_at=${data}&round_trip=`,
     gontijo: `https://www.gontijo.com.br`,
     jca: `https://vendas.jcaholding.com.br/busca`,
@@ -210,33 +254,96 @@ function gerarLinksBusca(origem: string, destino: string, data: string, origemUF
   }
 }
 
+function atualizarDepartureDateClickBusUrl(url: string, data: string): string {
+  const clickbusUrl = new URL(url)
+  clickbusUrl.searchParams.set("departureDate", data)
+  return clickbusUrl.toString()
+}
+
+async function extrairTextoPaginaComFrames(page: Page): Promise<string> {
+  const textos: string[] = []
+  try {
+    const mainText = await page.evaluate(() => document.body?.innerText || "")
+    textos.push(mainText)
+  } catch {
+    textos.push("")
+  }
+
+  for (const frame of page.frames()) {
+    if (frame === page.mainFrame()) continue
+    try {
+      const frameText = await frame.evaluate(() => document.body?.innerText || "")
+      if (frameText) textos.push(frameText)
+    } catch {
+      // Ignorar frames cross-origin ou restritos
+    }
+  }
+
+  return textos.join("\n").slice(0, 30000)
+}
+
 async function extrairTextoDaPagina(page: Page, url: string): Promise<string> {
   await page.goto(url, {
     waitUntil: "networkidle2",
-    timeout: 60000,
+    timeout: 7000,
   })
 
-  const texto = await page.evaluate(() => {
-    const titulo = document.title || ""
-    const h1 = Array.from(document.querySelectorAll("h1")).map((el) => el.textContent || "")
-    const h2 = Array.from(document.querySelectorAll("h2")).map((el) => el.textContent || "")
-    const corpo = document.body?.innerText || ""
-    return `${titulo}\n${h1.join("\n")}\n${h2.join("\n")}\n${corpo}`
+  return extrairTextoPaginaComFrames(page)
+}
+
+async function abrirPaginaClickBusEInteragirBotoes(page: Page, url: string): Promise<string> {
+  await page.goto(url, {
+    waitUntil: "networkidle2",
+    timeout: 20000,
   })
 
-  return texto.slice(0, 30000)
+  await esperar(1200)
+  await page.waitForSelector("button[data-testid='select-result-item'], #open-seatmap-action-area", { timeout: 20000 }).catch(() => null)
+  await clicarTodosBotoesRoxosClickBus(page)
+  await esperar(1200)
+  await clicarTodosBotoesRoxosClickBus(page)
+  await esperar(600)
+
+  return extrairTextoPaginaComFrames(page)
 }
 
 async function esperar(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+async function tentarScrapeClickBusComRetry(page: Page, url: string, tentativas = 3): Promise<ClickBusScrapeResult> {
+  if (page.url() !== url) {
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 10000 }).catch(() => null)
+  }
+
+  let ultimoResultado: ClickBusScrapeResult | null = null
+
+  for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
+    const resultado = await scrapeClickBus(page, url, true)
+    ultimoResultado = resultado
+
+    if (resultado.disponivel && resultado.resultados?.length > 0) {
+      return resultado
+    }
+
+    if (tentativa < tentativas) {
+      await esperar(800)
+    }
+  }
+
+  return (
+    ultimoResultado || {
+      disponivel: false,
+      vagasIdJovem: 0,
+      detalhes: "Nenhuma tentativa produziu resultado válido",
+      siteUrl: url,
+      resultados: [],
+    }
+  )
+}
+
 async function extrairTextoAtualDaPagina(page: Page): Promise<string> {
-  return page.evaluate(() => {
-    const titulo = document.title || ""
-    const corpo = document.body?.innerText || ""
-    return `${titulo}\n${corpo}`
-  })
+  return extrairTextoPaginaComFrames(page)
 }
 
 async function clicarAssentosDisponiveisClickBus(page: Page, maxCliques = 2): Promise<number> {
@@ -370,7 +477,33 @@ async function clicarBotaoRoxoSetaClickBus(page: Page, indice = 0): Promise<bool
   }, indice)
 }
 
-async function aguardarModalBeneficiosClickBus(page: Page, timeoutMs = 7000): Promise<boolean> {
+async function clicarTodosBotoesRoxosClickBus(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const buttons = Array.from(document.querySelectorAll("button[data-testid='select-result-item']"))
+      .filter((el) => el instanceof HTMLElement && el.offsetParent !== null) as HTMLElement[]
+
+    const areas = Array.from(document.querySelectorAll("#open-seatmap-action-area"))
+      .filter((el) => el instanceof HTMLElement && el.offsetParent !== null) as HTMLElement[]
+
+    const targets = buttons.length > 0 ? buttons : areas
+    targets.forEach((elemento) => {
+      if (elemento.tagName.toLowerCase() === "button") {
+        elemento.click()
+      } else {
+        const botaoInterno = elemento.querySelector("button, a, [role='button']")
+        if (botaoInterno instanceof HTMLElement) {
+          botaoInterno.click()
+        } else if (elemento instanceof HTMLElement) {
+          elemento.click()
+        }
+      }
+    })
+
+    return targets.length
+  })
+}
+
+async function aguardarModalBeneficiosClickBus(page: Page, timeoutMs = 20000): Promise<boolean> {
   try {
     await page.waitForFunction(
       () => {
@@ -397,25 +530,32 @@ async function extrairTextoModalBeneficiosClickBus(page: Page): Promise<string> 
     })
 
     if (alvo) return alvo.textContent || ""
-    return document.body?.innerText || ""
+    return ""
   })
 
-  return textoModal
+  if (textoModal.trim()) {
+    return textoModal
+  }
+
+  return extrairTextoPaginaComFrames(page)
 }
 
 async function consultarClickBusIdJovem(page: Page, url: string): Promise<number> {
-  const textoInicial = await extrairTextoDaPagina(page, url)
-  const vagasDireto = extrairVagasIdJovemDoTexto(textoInicial)
+  const textoInicial = await abrirPaginaClickBusEInteragirBotoes(page, url)
+  const vagasDireto = extrairVagasIdJovem100DoTexto(textoInicial)
   if (vagasDireto > 0) return vagasDireto
+
+  const vagasBotaoCardDireto = await extrairVagasIdJovemDoBotaoCardClickBus(page)
+  if (vagasBotaoCardDireto !== null) return vagasBotaoCardDireto
 
   const totalSelecionar = await contarBotoesPorTexto(page, "selecionar")
   const totalBotoesRoxos = await contarBotoesRoxosSetaClickBus(page)
-  const maximoTentativas = Math.min(Math.max(totalSelecionar, totalBotoesRoxos), 4)
+  const maximoTentativas = Math.min(Math.max(totalSelecionar, totalBotoesRoxos), 2)
 
   for (let indicePassagem = 0; indicePassagem < maximoTentativas; indicePassagem++) {
     await page.goto(url, {
       waitUntil: "networkidle2",
-      timeout: 60000,
+      timeout: 20000,
     })
 
     const clicouSelecionar = await clicarBotaoPorTexto(page, "selecionar", indicePassagem)
@@ -423,6 +563,11 @@ async function consultarClickBusIdJovem(page: Page, url: string): Promise<number
     if (!clicouSelecionar && !clicouSetaRoxa) continue
 
     await esperar(1200)
+
+    const totalClicados = await clicarTodosBotoesRoxosClickBus(page)
+    if (totalClicados > 0) {
+      await esperar(1200)
+    }
 
     const modalApareceu = await aguardarModalBeneficiosClickBus(page)
     let textoAposInteracao = ""
@@ -442,7 +587,8 @@ async function consultarClickBusIdJovem(page: Page, url: string): Promise<number
         : await extrairTextoAtualDaPagina(page)
     }
 
-    const vagas = extrairVagasIdJovemDoTexto(textoAposInteracao)
+    const vagasBotaoCardAposInteracao = await extrairVagasIdJovemDoBotaoCardClickBus(page)
+    const vagas = vagasBotaoCardAposInteracao !== null ? vagasBotaoCardAposInteracao : extrairVagasIdJovemDoTexto(textoAposInteracao)
     if (vagas > 0) return vagas
   }
 
@@ -456,9 +602,11 @@ async function consultarFonteComPuppeteer(
   destino: string,
   data: string,
   origemUF: string,
-  destinoUF: string
-): Promise<Passagem | null> {
+  destinoUF: string,
+  idJovem: boolean
+): Promise<Passagem[] | null> {
   const page = await browser.newPage()
+  const manterPaginaAberta = process.env.PUPPETEER_KEEP_OPEN !== "false"
 
   try {
     await page.setUserAgent(
@@ -469,32 +617,82 @@ async function consultarFonteComPuppeteer(
     if (paginaExigeLogin(textoPagina)) return null
 
     let vagasIdJovem = 0
+    let empresaPassagem = fonte.empresa
+    let disponivel = false
+
+    let valorPassagem: string | undefined
+    let horarioPartida = "N/A"
+    let horarioChegada = "N/A"
+    let duracaoPassagem = "Somente confirmacao de disponibilidade"
+
     if (fonte.site === "ClickBus") {
-      vagasIdJovem = await consultarClickBusIdJovem(page, fonte.siteUrl)
+      const resultadoClickBus = await tentarScrapeClickBusComRetry(page, fonte.siteUrl, 3)
+      let vagasIdJovem100 = 0
+
+      if (idJovem) {
+        vagasIdJovem100 = await consultarClickBusIdJovem(page, fonte.siteUrl)
+        vagasIdJovem = vagasIdJovem100
+      } else {
+        vagasIdJovem = resultadoClickBus.vagasIdJovem
+      }
+
+      if (resultadoClickBus.empresa) {
+        empresaPassagem = resultadoClickBus.empresa
+      }
+
+      disponivel = idJovem ? vagasIdJovem100 > 0 && resultadoClickBus.resultados.length > 0 : resultadoClickBus.disponivel
+
+      if (!disponivel || resultadoClickBus.resultados.length === 0) {
+        return null
+      }
+
+      return resultadoClickBus.resultados.map((item) => ({
+        id: `${fonte.site}-${data}-${Math.random().toString(36).slice(2, 11)}`,
+        empresa: item.empresa || empresaPassagem,
+        site: fonte.site,
+        siteUrl: fonte.siteUrl,
+        origem: `${origem} - ${origemUF}`,
+        destino: `${destino} - ${destinoUF}`,
+        data,
+        partida: item.horario || "N/A",
+        chegada: item.chegada || "N/A",
+        duracao: item.duracao || duracaoPassagem,
+        valor: item.valor,
+        vagasIdJovem,
+        vagasIdJovem100,
+        linkCompra: fonte.siteUrl,
+      }))
     } else {
       vagasIdJovem = inferirQuantidadeVagas(textoPagina)
+      disponivel = vagasIdJovem > 0
     }
 
-    if (vagasIdJovem <= 0) return null
+    if (!disponivel) return null
 
-    return {
-      id: `${fonte.site}-${data}-${Math.random().toString(36).slice(2, 11)}`,
-      empresa: fonte.empresa,
-      site: fonte.site,
-      siteUrl: fonte.siteUrl,
-      origem: `${origem} - ${origemUF}`,
-      destino: `${destino} - ${destinoUF}`,
-      data,
-      partida: "N/A",
-      chegada: "N/A",
-      duracao: "Somente confirmacao de disponibilidade",
-      vagasIdJovem,
-      linkCompra: fonte.siteUrl,
-    }
+    return [
+      {
+        id: `${fonte.site}-${data}-${Math.random().toString(36).slice(2, 11)}`,
+        empresa: empresaPassagem,
+        site: fonte.site,
+        siteUrl: fonte.siteUrl,
+        origem: `${origem} - ${origemUF}`,
+        destino: `${destino} - ${destinoUF}`,
+        data,
+        partida: horarioPartida,
+        chegada: horarioChegada,
+        duracao: duracaoPassagem,
+        valor: valorPassagem,
+        vagasIdJovem,
+        vagasIdJovem100: vagasIdJovem,
+        linkCompra: fonte.siteUrl,
+      },
+    ]
   } catch {
     return null
   } finally {
-    await page.close()
+    if (!manterPaginaAberta) {
+      await page.close()
+    }
   }
 }
 
@@ -514,62 +712,159 @@ async function executarEmLotes<T, R>(
   return resultados
 }
 
-async function buscarPassagens(origem: string, destino: string, data: string, origemUF: string, destinoUF: string): Promise<Passagem[]> {
+function gerarDatasParaConsulta(data: string, diasAdicionais: number): string[] {
   const dataBase = new Date(`${data}T00:00:00`)
-  const diasParaConsultar = 3
-  const concorrenciaMaxima = 3
+  const quantidadeDias = Math.max(0, diasAdicionais) + 1
+
+  return Array.from({ length: quantidadeDias }, (_, indice) => {
+    const dataConsulta = new Date(dataBase)
+    dataConsulta.setDate(dataConsulta.getDate() + indice)
+    return dataConsulta.toISOString().split("T")[0]
+  })
+}
+
+function gerarDatasIntervalo(dataInicio: string, dataFim: string): string[] {
+  const inicio = new Date(`${dataInicio}T00:00:00`)
+  const fim = new Date(`${dataFim}T00:00:00`)
+  const datas: string[] = []
+
+  if (isNaN(inicio.getTime()) || isNaN(fim.getTime()) || inicio > fim) {
+    return datas
+  }
+
+  const atual = new Date(inicio)
+  while (atual <= fim) {
+    datas.push(atual.toISOString().split("T")[0])
+    atual.setDate(atual.getDate() + 1)
+  }
+
+  return datas
+}
+
+async function buscarPassagens(
+  origem: string,
+  destino: string,
+  dataInicio: string,
+  dataFim: string,
+  origemUF: string,
+  destinoUF: string,
+  idJovem: boolean
+): Promise<Passagem[]> {
+  const concorrenciaMaxima = 1
+  const tempoMaximoExecucao = 60000
+
+  const datasParaPesquisar = gerarDatasIntervalo(dataInicio, dataFim)
 
   const puppeteer = await import("puppeteer")
-  const desabilitarSandbox = process.env.PUPPETEER_DISABLE_SANDBOX === "true"
-  const argsChromium = desabilitarSandbox
-    ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
-    : ["--disable-dev-shm-usage"]
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: argsChromium,
-  })
+  const headless = process.env.PUPPETEER_HEADLESS === "true"
+  const slowMo = process.env.PUPPETEER_SLOW_MO ? Number(process.env.PUPPETEER_SLOW_MO) : 0
+  // Garantir que o navegador seja fechado após o uso
+  const manterAberto = false
 
-  try {
-    const datasParaConsultar: string[] = []
-    for (let deslocamentoDias = 0; deslocamentoDias <= diasParaConsultar; deslocamentoDias++) {
-      const dataConsulta = new Date(dataBase)
-      dataConsulta.setDate(dataConsulta.getDate() + deslocamentoDias)
-      datasParaConsultar.push(dataConsulta.toISOString().split("T")[0])
+  let browser: Browser | null = null
+  let browserFechado = false
+  const fecharBrowser = async () => {
+    if (browserFechado) return
+    browserFechado = true
+    if (browser) {
+      await browser.close().catch(() => null)
+      browser = null
+    }
+  }
+
+  const criarBrowser = async (): Promise<Browser> => {
+    const novoBrowser = await puppeteer.launch({
+      headless,
+      slowMo,
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+    })
+    browser = novoBrowser
+    browserFechado = false
+    return novoBrowser
+  }
+
+  const buscarComBrowser = async (
+    browserInstance: Browser,
+    dataFormatada: string
+  ): Promise<Passagem[]> => {
+    const resultadosPorData: Passagem[] = []
+
+    const links = gerarLinksBusca(origem, destino, dataFormatada, origemUF, destinoUF, idJovem)
+    const clickbusUrl = atualizarDepartureDateClickBusUrl(links.clickbus, dataFormatada)
+    const fontes: FonteBusca[] = [
+      { site: "ClickBus", empresa: "ClickBus", siteUrl: clickbusUrl },
+    ]
+
+    const fontesSemLogin = fontes.filter((fonte) => !fonte.requerLogin)
+    for (const fonte of fontesSemLogin) {
+      const passagensFonte = await consultarFonteComPuppeteer(
+        browserInstance,
+        fonte,
+        origem,
+        destino,
+        dataFormatada,
+        origemUF,
+        destinoUF,
+        idJovem
+      )
+      if (passagensFonte) resultadosPorData.push(...passagensFonte)
     }
 
-    const resultadosPorData = await executarEmLotes(datasParaConsultar, concorrenciaMaxima, async (dataFormatada) => {
-      const resultadosData: Passagem[] = []
-
-      const links = gerarLinksBusca(origem, destino, dataFormatada, origemUF, destinoUF)
-      const fontes: FonteBusca[] = [
-        { site: "ClickBus", empresa: "ClickBus", siteUrl: links.clickbus },
-      ]
-
-      const fontesSemLogin = fontes.filter((fonte) => !fonte.requerLogin)
-
-      for (const fonte of fontesSemLogin) {
-        const passagem = await consultarFonteComPuppeteer(
-          browser,
-          fonte,
-          origem,
-          destino,
-          dataFormatada,
-          origemUF,
-          destinoUF
-        )
-        if (passagem) resultadosData.push(passagem)
-      }
-      return resultadosData
+    return resultadosPorData.sort((a, b) => {
+      if (a.data !== b.data) return a.data.localeCompare(b.data)
+      return a.site.localeCompare(b.site)
     })
+  }
 
-    const resultados = resultadosPorData.flat()
+  const maxBrowserRestarts = 3
+  const timeoutFecharNavegador = setTimeout(() => {
+    void fecharBrowser()
+  }, tempoMaximoExecucao - 1000)
 
-    return resultados.sort((a, b) => {
+  try {
+    const buscarData = async (dataFormatada: string): Promise<Passagem[]> => {
+      let resultadosFinal: Passagem[] = []
+
+      for (let ciclo = 1; ciclo <= maxBrowserRestarts; ciclo++) {
+        const browserInstance = await criarBrowser()
+        const resultados = await buscarComBrowser(browserInstance, dataFormatada)
+        await fecharBrowser()
+
+        if (resultados.length > 0) {
+          resultadosFinal = resultados
+          break
+        }
+
+        if (ciclo < maxBrowserRestarts) {
+          await esperar(1000)
+        }
+      }
+
+      return resultadosFinal
+    }
+
+    const resultadosPorData: Passagem[] = []
+
+    for (const dataFormatada of datasParaPesquisar) {
+      const resultados = await buscarData(dataFormatada)
+      if (resultados.length > 0) {
+        resultadosPorData.push(...resultados)
+      }
+
+      if (dataFormatada !== datasParaPesquisar[datasParaPesquisar.length - 1]) {
+        await esperar(1000)
+      }
+    }
+
+    return resultadosPorData.sort((a, b) => {
       if (a.data !== b.data) return a.data.localeCompare(b.data)
       return a.site.localeCompare(b.site)
     })
   } finally {
-    await browser.close()
+    clearTimeout(timeoutFecharNavegador)
+    if (!manterAberto) {
+      await fecharBrowser()
+    }
   }
 }
 
@@ -592,12 +887,20 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const origem = searchParams.get("origem")
   const destino = searchParams.get("destino")
+  const dataInicio = searchParams.get("dataInicio")
+  const dataFim = searchParams.get("dataFim")
   const data = searchParams.get("data")
   const origemUF = searchParams.get("origemUF") || "RJ"
   const destinoUF = searchParams.get("destinoUF") || "SP"
   
-  if (!origem || !destino || !data) {
-    return NextResponse.json({ error: "Parâmetros obrigatórios: origem, destino, data" }, { status: 400 })
+  if (!origem || !destino || (!dataInicio && !data)) {
+    return NextResponse.json({ error: "Parâmetros obrigatórios: origem, destino, dataInicio e dataFim ou data" }, { status: 400 })
+  }
+  if (dataFim && !dataInicio) {
+    return NextResponse.json({ error: "dataInicio precisa ser enviada quando dataFim for usada." }, { status: 400 })
+  }
+  if (dataInicio && !dataFim) {
+    return NextResponse.json({ error: "dataFim precisa ser enviada quando dataInicio for usada." }, { status: 400 })
   }
 
   if (!validarDataBusca(data)) {
@@ -621,10 +924,28 @@ export async function GET(request: NextRequest) {
     )
   }
   
+  const idJovem = searchParams.get("idJovem") === "true"
+  const diasAdicionais = Number(searchParams.get("diasAdicionais") || "0")
+
   let passagens: Passagem[] = []
+  let dataSolicitada = ""
+  let datasConsultadasISO: string[] = []
 
   try {
-    passagens = await buscarPassagens(origem, destino, data, origemUF, destinoUF)
+    if (dataInicio && dataFim) {
+      passagens = await buscarPassagens(origem, destino, dataInicio, dataFim, origemUF, destinoUF, idJovem)
+      datasConsultadasISO = gerarDatasIntervalo(dataInicio, dataFim)
+      dataSolicitada = dataInicio
+    } else {
+      const ultimoDia = gerarDatasParaConsulta(data!, diasAdicionais).slice(-1)[0]
+      passagens = await buscarPassagens(origem, destino, data!, ultimoDia, origemUF, destinoUF, idJovem)
+      datasConsultadasISO = gerarDatasParaConsulta(data!, diasAdicionais)
+      dataSolicitada = data!
+    }
+
+    if (idJovem) {
+      passagens = passagens.filter((passagem) => passagem.vagasIdJovem > 0)
+    }
   } catch {
     return NextResponse.json(
       { error: "Nao foi possivel consultar os sites no momento. Tente novamente em alguns minutos." },
@@ -632,11 +953,16 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const dataFormatada = new Date(data + "T00:00:00").toLocaleDateString("pt-BR")
+  const [ano, mes, dia] = dataSolicitada.split("-")
+  const dataFormatada = `${dia}/${mes}`
+  const datasConsultadas = datasConsultadasISO.map((dataIso) => {
+    const [consultaAno, consultaMes, consultaDia] = dataIso.split("-")
+    return `${consultaDia}/${consultaMes}`
+  })
   
   // Separa a data solicitada das datas seguintes com vaga
-  const passagensNaData = passagens.filter(p => p.data === data)
-  const passagensProximas = passagens.filter(p => p.data !== data)
+  const passagensNaData = passagens.filter((p) => p.data === dataSolicitada)
+  const passagensProximas = passagens.filter((p) => p.data !== dataSolicitada)
   const dataTemIdJovem = passagensNaData.length > 0
   const fontesIgnoradas = ["Embarca.ai", "Guanabara", "JCA", "Gontijo", "Águia Branca"]
   
@@ -645,6 +971,7 @@ export async function GET(request: NextRequest) {
     origem: `${origem} - ${origemUF}`,
     destino: `${destino} - ${destinoUF}`,
     dataSolicitada: dataFormatada,
+    datasConsultadas,
     dataTemIdJovem,
     fontesIgnoradas,
     passagensNaData,
