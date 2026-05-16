@@ -68,7 +68,7 @@ function montarChaveCidade(nome: string, uf: string): string {
   return `${normalizarTexto(nome)}::${uf.trim().toUpperCase()}`
 }
 
-function obterIpDaRequisicao(request: NextRequest): string {
+function obterIpDaRequisicao(request: NextRequest): string | null {
   const forwardedFor = request.headers.get("x-forwarded-for")
   if (forwardedFor) {
     const primeiroIp = forwardedFor.split(",")[0]?.trim()
@@ -78,10 +78,10 @@ function obterIpDaRequisicao(request: NextRequest): string {
   const realIp = request.headers.get("x-real-ip")
   if (realIp) return realIp
 
-  const userAgent = request.headers.get("user-agent")?.trim()
-  if (userAgent) return `anon:${userAgent.toLowerCase().slice(0, 120)}`
+  if (process.env.NODE_ENV === "production") return null
 
-  return "anon:sem-identificacao"
+  const userAgent = request.headers.get("user-agent")?.trim() || "sem-identificacao"
+  return `dev:${userAgent.toLowerCase().slice(0, 120)}`
 }
 
 function validarRateLimit(ip: string): boolean {
@@ -573,6 +573,13 @@ async function buscarPassagens(origem: string, destino: string, data: string, or
 
 export async function GET(request: NextRequest) {
   const ip = obterIpDaRequisicao(request)
+  if (!ip) {
+    return NextResponse.json(
+      { error: "Não foi possível identificar o cliente para aplicar limite de uso." },
+      { status: 400 }
+    )
+  }
+
   if (!validarRateLimit(ip)) {
     return NextResponse.json(
       { error: "Muitas consultas em pouco tempo. Aguarde e tente novamente." },
