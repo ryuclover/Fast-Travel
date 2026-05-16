@@ -35,6 +35,8 @@ interface RegistroRateLimit {
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX_REQUESTS = 10
 const MAX_DATA_BUSCA_DIAS = 365
+const MAX_USER_AGENT_LENGTH = 120
+const MS_POR_DIA = 24 * 60 * 60 * 1000
 const registrosRateLimit = new Map<string, RegistroRateLimit>()
 let proximaLimpezaRateLimit = 0
 
@@ -81,7 +83,7 @@ function obterIpDaRequisicao(request: NextRequest): string | null {
   if (process.env.NODE_ENV === "production") return null
 
   const userAgent = request.headers.get("user-agent")?.trim() || "sem-identificacao"
-  return `dev:${userAgent.toLowerCase().slice(0, 120)}`
+  return `dev:${userAgent.toLowerCase().slice(0, MAX_USER_AGENT_LENGTH)}`
 }
 
 function validarRateLimit(ip: string): boolean {
@@ -124,7 +126,7 @@ function validarDataBusca(data: string): boolean {
 
   const hoje = new Date()
   const hojeUtc = Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate())
-  const maxUtc = hojeUtc + MAX_DATA_BUSCA_DIAS * 24 * 60 * 60 * 1000
+  const maxUtc = hojeUtc + MAX_DATA_BUSCA_DIAS * MS_POR_DIA
   const dataUtc = Date.UTC(
     dataSolicitada.getUTCFullYear(),
     dataSolicitada.getUTCMonth(),
