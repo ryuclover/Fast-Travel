@@ -115,7 +115,7 @@ function validarDataBusca(data: string): boolean {
   const dataSolicitada = new Date(`${data}T00:00:00.000Z`)
   if (Number.isNaN(dataSolicitada.getTime())) return false
 
-  const [ano, mes, dia] = data.split("-").map((parte) => Number.parseInt(parte, 10))
+  const [ano, mes, dia] = data.split("-").map((segmento) => Number.parseInt(segmento, 10))
   if (
     dataSolicitada.getUTCFullYear() !== ano ||
     dataSolicitada.getUTCMonth() + 1 !== mes ||
@@ -602,7 +602,7 @@ export async function GET(request: NextRequest) {
 
   if (!validarDataBusca(data)) {
     return NextResponse.json(
-      { error: "Data inválida. Use o formato YYYY-MM-DD e uma data entre hoje e 1 ano." },
+      { error: "Data inválida. Use o formato YYYY-MM-DD e uma data entre hoje e 1 ano no futuro." },
       { status: 400 }
     )
   }
