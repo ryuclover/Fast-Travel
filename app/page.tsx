@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState, type ChangeEvent } from "react"
+import { useRef, useState, useEffect, type ChangeEvent } from "react"
 import { MapPin, Calendar, Search, ArrowRight, ExternalLink, Loader2, Info, Ticket, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,10 +48,8 @@ function formatarDataBloco(dataStr: string) {
   return `${dia}/${mes}`
 }
 
-function formatarDataParaExibicao(dataStr: string) {
-  const [ano, mes, dia] = dataStr.split("-")
-  return `${dia}/${mes}`
-}
+// Alias mantido para compatibilidade com uso no restante do arquivo
+const formatarDataParaExibicao = formatarDataBloco
 
 function parseDataExibicao(dataStr: string): string | null {
   const match = dataStr.match(/^(\d{1,2})\/(\d{1,2})$/)
@@ -174,6 +172,8 @@ export default function Home() {
   const [resultado, setResultado] = useState<ResultadoBusca | null>(null)
   const [erro, setErro] = useState("")
   const [diasAdicionais, setDiasAdicionais] = useState(0)
+  const [progresso, setProgresso] = useState(0)
+  const progressoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const dataInicioHiddenRef = useRef<HTMLInputElement>(null)
   const dataFimHiddenRef = useRef<HTMLInputElement>(null)
 
@@ -258,6 +258,22 @@ export default function Home() {
     setErro("")
     setCarregando(true)
     setResultado(null)
+    setProgresso(0)
+
+    // Anima o círculo de progresso por ~90s (duração máxima do timeout do backend)
+    // Vai de 0% a 95% suavemente, os 5% finais ficam para quando a resposta chegar
+    const DURACAO_MS = 90_000
+    const INTERVALO_MS = 250
+    const PASSO = (95 / (DURACAO_MS / INTERVALO_MS))
+    progressoIntervalRef.current = setInterval(() => {
+      setProgresso(prev => {
+        if (prev >= 95) {
+          if (progressoIntervalRef.current) clearInterval(progressoIntervalRef.current)
+          return 95
+        }
+        return Math.min(prev + PASSO, 95)
+      })
+    }, INTERVALO_MS)
 
     try {
       const params = new URLSearchParams({
@@ -290,11 +306,14 @@ export default function Home() {
           resultadoParaExibir.passagensNaData.length + resultadoParaExibir.passagensProximas.length
       }
 
+      setProgresso(100)
       setResultado(resultadoParaExibir)
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Erro ao buscar passagens")
     } finally {
+      if (progressoIntervalRef.current) clearInterval(progressoIntervalRef.current)
       setCarregando(false)
+      setTimeout(() => setProgresso(0), 600)
     }
   }
 
@@ -518,9 +537,12 @@ export default function Home() {
                         )}
                       </div>
                       {carregando && (
-                        <p className="text-sm text-muted-foreground">
-                          Buscando passagens, aguardando enquanto consultamos os sites um de cada vez.
-                        </p>
+                        <div className="flex flex-col items-end gap-2 mt-1">
+                          <CircularProgress value={progresso} />
+                          <p className="text-xs text-muted-foreground">
+                            Consultando os sites... isso pode levar até 90 segundos.
+                          </p>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -555,7 +577,10 @@ export default function Home() {
                   </div>
                   <div className="space-y-1 text-right">
                     <span className="text-sm text-muted-foreground">
-                      {resultado.totalEncontrado} opção{resultado.totalEncontrado !== 1 ? "s" : ""} de ID Jovem 100%{resultado.totalEncontrado !== 1 ? "s" : ""}
+                      {idJovem
+                        ? `${resultado.totalEncontrado} opção${resultado.totalEncontrado !== 1 ? "ões" : ""} de ID Jovem 100%`
+                        : `${resultado.totalEncontrado} passagem${resultado.totalEncontrado !== 1 ? "s" : ""} encontrada${resultado.totalEncontrado !== 1 ? "s" : ""}`
+                      }
                     </span>
                     {resultado.datasConsultadas && resultado.datasConsultadas.length > 1 && (
                       <p className="text-sm text-muted-foreground">
@@ -689,3 +714,55 @@ function SiteDisponivelItem({ passagem }: { passagem: Passagem }) {
     </div>
   )
 }
+
+function CircularProgress({ value }: { value: number }) {
+  const radius = 28
+  const circumference = 2 * Math.PI * radius
+  const clampedValue = Math.min(100, Math.max(0, value))
+  const offset = circumference - (clampedValue / 100) * circumference
+  const displayValue = Math.round(clampedValue)
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="relative w-16 h-16 flex items-center justify-center">
+        <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
+          {/* Trilha de fundo */}
+          <circle
+            cx="32"
+            cy="32"
+            r={radius}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="4"
+            className="text-border"
+          />
+          {/* Arco de progresso */}
+          <circle
+            cx="32"
+            cy="32"
+            r={radius}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            className="text-primary transition-all duration-300 ease-out"
+            style={{
+              filter: "drop-shadow(0 0 4px hsl(var(--primary) / 0.6))",
+            }}
+          />
+        </svg>
+        <span className="absolute text-xs font-semibold text-primary">{displayValue}%</span>
+      </div>
+      <div className="text-sm text-muted-foreground">
+        <p className="font-medium text-foreground">Consultando...</p>
+        {clampedValue < 30 && <p className="text-xs">Conectando aos sites</p>}
+        {clampedValue >= 30 && clampedValue < 60 && <p className="text-xs">Verificando disponibilidade</p>}
+        {clampedValue >= 60 && clampedValue < 90 && <p className="text-xs">Processando resultados</p>}
+        {clampedValue >= 90 && <p className="text-xs">Finalizando busca...</p>}
+      </div>
+    </div>
+  )
+}
+

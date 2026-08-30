@@ -1,0 +1,3 @@
+colocar pra aceitar varias apis e ir usando elas tipo
+usar a 1, dps colocar pra usar a 2, a 3 etc...
+assim vai demorar muito de acabar os creditos
