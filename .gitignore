@@ -13,6 +13,7 @@ node_modules/
 .DS_Store
 .vercel
 scratch/
-*.png
+/*.png
+!docs/screenshots/*.png
 *.tsbuildinfo
 .env*
