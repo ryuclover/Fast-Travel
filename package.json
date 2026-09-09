@@ -1,12 +1,17 @@
 {
-  "name": "my-project",
+  "name": "fast-travel",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "map:clickbus": "tsx lib/scrapers/clickbus/mapper.ts",
+    "map:gontijo": "tsx lib/scrapers/gontijo/mapper.ts",
+    "map:guanabara": "tsx lib/scrapers/guanabara/mapper.ts",
+    "map:buser": "tsx lib/scrapers/buser/mapper.ts",
+    "compare:interval": "tsx scripts/test-interval-search.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -68,6 +73,7 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "dotenv": "^17.4.2",
+    "playwright": "^1.63.0",
     "postcss": "^8.5",
     "shadcn": "^4.0.0",
     "tailwindcss": "^4.2.0",

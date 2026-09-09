@@ -1,0 +1,18 @@
+{
+  "capturedAt": "2026-09-09T08:22:15.795Z",
+  "sampleUrl": "https://bff.clickbus.com/web/api/v6/trips?from=rio-de-janeiro-rj-todos&to=sao-paulo-sp-todos&departureDate=2026-09-25&clientId=2",
+  "headers": {
+    "x-transaction-id": "SEARCH-MFE-bdb88a91-9335-4c7c-80f6-76d312224a08",
+    "sec-ch-ua-platform": "\"Windows\"",
+    "referer": "https://www.clickbus.com.br/",
+    "sec-ch-ua": "\"HeadlessChrome\";v=\"153\", \"Not_A Brand\";v=\"8\", \"Chromium\";v=\"153\"",
+    "sec-ch-ua-mobile": "?0",
+    "cb-front-version": "0.15.108",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "st-cb-px": "da24fefd3b0215ac64047821bde591c6e8b023bb",
+    "content-type": "application/json",
+    "x-customer-session-id": "Web-96a06902-7a31-485f-aacd-fb54d01eea1a"
+  },
+  "totalTripsFound": 0,
+  "sampleFirstTrip": null
+}
