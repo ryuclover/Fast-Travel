@@ -5,7 +5,10 @@ const nextConfig = {
   },
   serverExternalPackages: ["puppeteer", "playwright-core", "@sparticuz/chromium"],
   outputFileTracingIncludes: {
-    "/api/**/*": ["./node_modules/@sparticuz/chromium/bin/**/*"],
+    "/api/**/*": [
+      "./node_modules/@sparticuz/chromium/**/*",
+      "./node_modules/playwright-core/**/*",
+    ],
   },
   images: {
     unoptimized: false,
