@@ -5,11 +5,7 @@ import {
   ResumoDia,
   StatusProvedorBusca,
 } from "../scrapers/types"
-import { scrapeClickBus } from "../scrapers/clickbus"
-import { scrapeGontijo } from "../scrapers/gontijo"
-import { scrapeGuanabara } from "../scrapers/guanabara"
-import { scrapeBuser } from "../scrapers/buser"
-import { scrapeEmbarca } from "../scrapers/embarca"
+import { obterAdaptadores, type ProvedorId } from "./provedores"
 
 export interface CompararIntervaloParams {
   origem: string
@@ -19,7 +15,7 @@ export interface CompararIntervaloParams {
   dataInicio: string // YYYY-MM-DD
   dataFim: string // YYYY-MM-DD
   idJovem?: boolean
-  provedores?: Array<"ClickBus" | "Gontijo" | "Guanabara" | "Buser" | "Embarca">
+  provedores?: ProvedorId[]
   maxConcorrencia?: number
 }
 
@@ -84,7 +80,7 @@ export async function compararPrecosIntervalo(
     dataInicio,
     dataFim,
     idJovem = false,
-    provedores = ["ClickBus", "Gontijo", "Guanabara", "Buser", "Embarca"],
+    provedores = ["ClickBus", "Gontijo", "Guanabara", "Buser", "Embarca", "AguiaBranca"],
     maxConcorrencia = 1,
   } = params
 
@@ -98,82 +94,21 @@ export async function compararPrecosIntervalo(
     datas,
     maxConcorrencia,
     async (dataIso) => {
-      const tarefasProvedores: Array<() => Promise<ScraperResult>> = []
-
-      if (provedores.includes("ClickBus")) {
-        tarefasProvedores.push(() =>
-          executarComTimeout(scrapeClickBus(origem, destino, dataIso, origemUF, destinoUF, idJovem), TIMEOUT_PROVEDOR_MS).catch((err) => ({
-            disponivel: false,
-            vagasIdJovem: 0,
-            detalhes: "Erro ClickBus",
-            siteUrl: "",
-            provedor: "ClickBus",
-            dataConsultada: dataIso,
-            resultados: [],
-            error: String(err),
-          }))
-        )
-      }
-
-      if (provedores.includes("Gontijo")) {
-        tarefasProvedores.push(() =>
-          executarComTimeout(scrapeGontijo(origem, origemUF, destino, destinoUF, dataIso, idJovem), TIMEOUT_PROVEDOR_MS).catch((err) => ({
-            disponivel: false,
-            vagasIdJovem: 0,
-            detalhes: "Erro Gontijo",
-            siteUrl: "",
-            provedor: "Gontijo",
-            dataConsultada: dataIso,
-            resultados: [],
-            error: String(err),
-          }))
-        )
-      }
-
-      if (provedores.includes("Guanabara")) {
-        tarefasProvedores.push(() =>
-          executarComTimeout(scrapeGuanabara(origem, destino, dataIso, origemUF, destinoUF, idJovem), TIMEOUT_PROVEDOR_MS).catch((err) => ({
-            disponivel: false,
-            vagasIdJovem: 0,
-            detalhes: "Erro Guanabara",
-            siteUrl: "",
-            provedor: "Guanabara",
-            dataConsultada: dataIso,
-            resultados: [],
-            error: String(err),
-          }))
-        )
-      }
-
-      if (provedores.includes("Buser") && !idJovem) {
-        tarefasProvedores.push(() =>
-          executarComTimeout(scrapeBuser(origem, origemUF, destino, destinoUF, dataIso, idJovem), TIMEOUT_PROVEDOR_MS).catch((err) => ({
-            disponivel: false,
-            vagasIdJovem: 0,
-            detalhes: "Erro Buser",
-            siteUrl: "",
-            provedor: "Buser",
-            dataConsultada: dataIso,
-            resultados: [],
-            error: String(err),
-          }))
-        )
-      }
-
-      if (provedores.includes("Embarca")) {
-        tarefasProvedores.push(() =>
-          executarComTimeout(scrapeEmbarca(origem, origemUF, destino, destinoUF, dataIso, idJovem), TIMEOUT_PROVEDOR_MS).catch((err) => ({
-            disponivel: false,
-            vagasIdJovem: 0,
-            detalhes: "Erro Embarca.ai",
-            siteUrl: "",
-            provedor: "Embarca.ai",
-            dataConsultada: dataIso,
-            resultados: [],
-            error: String(err),
-          }))
-        )
-      }
+      const tarefasProvedores: Array<() => Promise<ScraperResult>> = obterAdaptadores(provedores, idJovem).map((adaptador) => () =>
+        executarComTimeout(
+          adaptador.consultar({ origem, origemUF, destino, destinoUF, dataIso, idJovem }),
+          TIMEOUT_PROVEDOR_MS
+        ).catch((err) => ({
+          disponivel: false,
+          vagasIdJovem: 0,
+          detalhes: `Erro ${adaptador.id}`,
+          siteUrl: "",
+          provedor: adaptador.id,
+          dataConsultada: dataIso,
+          resultados: [],
+          error: String(err),
+        }))
+      )
 
       const resultadosProvedores: ScraperResult[] = []
       for (const tarefa of tarefasProvedores) {

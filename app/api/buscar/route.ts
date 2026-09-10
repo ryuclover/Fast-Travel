@@ -37,8 +37,15 @@ const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX_REQUESTS = 30
 const MAX_DATA_BUSCA_DIAS = 365
 const MAX_INTERVALO_BUSCA_DIAS = 7
-const PROVEDORES_DISPONIVEIS = new Set(["ClickBus", "Guanabara", "Buser"])
 const MAX_USER_AGENT_LENGTH = 120
+const PROVEDORES_DISPONIVEIS = new Set([
+  "ClickBus",
+  "Guanabara",
+  "Buser",
+  "Gontijo",
+  "Embarca",
+  "AguiaBranca",
+])
 const MS_POR_DIA = 24 * 60 * 60 * 1000
 const registrosRateLimit = new Map<string, RegistroRateLimit>()
 let proximaLimpezaRateLimit = 0
@@ -145,7 +152,12 @@ function converterItemParaPassagem(item: ResultItem, siteFallback = "FastTravel"
     valorNumerico: item.valorNumerico,
     classe: item.classe,
     tipoGratuidade: item.tipoGratuidade,
-    modalidadeGratuidade: (item.linkCompra?.includes("viajeguanabara") || item.linkCompra?.includes("embarca")) ? "online" : "guiche",
+    modalidadeGratuidade:
+      item.linkCompra?.includes("viajeguanabara") ||
+      item.linkCompra?.includes("embarca") ||
+      item.linkCompra?.includes("aguiabranca")
+        ? "online"
+        : "guiche",
     vagasIdJovem: item.vagasIdJovem ?? 0,
     vagasIdJovem100: item.tipoGratuidade === "id_jovem_100" ? item.vagasIdJovem ?? 2 : 0,
     linkCompra: item.linkCompra || "",
@@ -236,7 +248,12 @@ export async function GET(request: NextRequest) {
       dataInicio: inicioEfetivo,
       dataFim: fimEfetivo,
       idJovem,
-      provedores: provedoresSelecionados.length > 0 ? provedoresSelecionados as Array<"ClickBus" | "Guanabara" | "Buser"> : undefined,
+      provedores:
+        provedoresSelecionados.length > 0
+          ? (provedoresSelecionados as Array<
+              "ClickBus" | "Guanabara" | "Buser" | "Gontijo" | "Embarca" | "AguiaBranca"
+            >)
+          : undefined,
       maxConcorrencia: 1,
     })
 
@@ -262,7 +279,7 @@ export async function GET(request: NextRequest) {
       dataSolicitada: dataFormatada,
       datasConsultadas,
       dataTemIdJovem,
-      fontesIgnoradas: ["Embarca.ai", "JCA", "Águia Branca"],
+      fontesIgnoradas: ["JCA"],
       passagensNaData,
       passagensProximas,
       totalEncontrado: passagensFormatadas.length,
