@@ -16,10 +16,18 @@ Para consultar uma fonte diretamente, abra a URL oficial indicada em cada seçã
 
 Consulta de referência: Rio de Janeiro/RJ para Salvador/BA, viagem em 10/09/2026, modalidade comercial.
 
+Teste consolidado local em 11/09/2026:
+
+| Rota | Total real | Fontes com resultados |
+| --- | ---: | --- |
+| Rio de Janeiro -> Sao Paulo | 59 | Buser |
+| Rio de Janeiro -> Salvador | 6 | ClickBus (5) e Buser (1) |
+| Rio de Janeiro -> Belo Horizonte | 63 | ClickBus (38) e Buser (25) |
+
 | Provedor | Resultado observado | Integração atual | Próxima ação |
 | --- | --- | --- | --- |
 | ClickBus | Parser atualizado para o BFF v6 (`trips`/`parts`); 5 viagens Rio-Salvador e 38 Rio-BH em 11/09 | Playwright interceptando BFF | Validar o binário Chromium no deploy; Rio-SP retornou sem oferta nessa data |
-| Buser | 0 horários em 10/09; 1 horário em 11/09 por R$ 295,98 | Playwright lendo cards HTML | Preferir endpoint estruturado se a página mudar |
+| Buser | 0 horários em 10/09; 1 horário em 11/09 por R$ 295,98 | Fallback HTML SSR e Playwright | Preferir endpoint estruturado se a página mudar |
 | Guanabara/UTIL | API respondeu HTTP 500 em consulta direta | API REST | Investigar contrato, sessão e parâmetros aceitos |
 | Gontijo | Não há consulta automática real implementada | Portal oficial sem scraper de disponibilidade | Implementar fluxo oficial antes de exibir horários |
 | Embarca.ai | Não há consulta automática real implementada | Portal oficial sem scraper de disponibilidade | Implementar catálogo/API real antes de exibir horários |
