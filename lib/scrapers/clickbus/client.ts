@@ -170,7 +170,6 @@ export class ClickBusSession {
           provedor: "ClickBus",
           dataConsultada: dataIso,
           resultados,
-          error: capturedBff ? undefined : "BFF_NO_RESPONSE",
         }
       }
 
