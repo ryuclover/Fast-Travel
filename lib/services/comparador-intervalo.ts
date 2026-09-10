@@ -178,8 +178,10 @@ export async function compararPrecosIntervalo(
       }
 
       for (const res of resultadosProvedores) {
-        const status = res.error
-          ? "erro"
+        const status = res.error === "COVERAGE_NOT_IMPLEMENTED"
+          ? "sem_cobertura"
+          : res.error
+            ? "erro"
           : res.resultados.length > 0
             ? "online"
             : "sem_oferta"

@@ -4,6 +4,9 @@ const nextConfig = {
     ignoreBuildErrors: false,
   },
   serverExternalPackages: ["puppeteer", "playwright-core", "@sparticuz/chromium"],
+  outputFileTracingIncludes: {
+    "/api/buscar": ["./node_modules/@sparticuz/chromium/bin/**/*"],
+  },
   images: {
     unoptimized: false,
   },

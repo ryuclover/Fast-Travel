@@ -18,11 +18,11 @@ Consulta de referência: Rio de Janeiro/RJ para Salvador/BA, viagem em 10/09/202
 
 | Provedor | Resultado observado | Integração atual | Próxima ação |
 | --- | --- | --- | --- |
-| ClickBus | A consulta dependia de navegador headless e usava slug antigo com `-todos` | Playwright interceptando BFF | Validar no deploy e atualizar o mapeamento quando o BFF mudar |
+| ClickBus | Parser atualizado para o BFF v6 (`trips`/`parts`); 5 viagens Rio-Salvador e 38 Rio-BH em 11/09 | Playwright interceptando BFF | Validar o binário Chromium no deploy; Rio-SP retornou sem oferta nessa data |
 | Buser | 0 horários em 10/09; 1 horário em 11/09 por R$ 295,98 | Playwright lendo cards HTML | Preferir endpoint estruturado se a página mudar |
 | Guanabara/UTIL | API respondeu HTTP 500 em consulta direta | API REST | Investigar contrato, sessão e parâmetros aceitos |
-| Gontijo | Rio-Salvador não está implementado | Dados fixos para poucas rotas | Substituir dados fixos por consulta oficial |
-| Embarca.ai | Rio-Salvador não está entre as rotas implementadas | Lista fixa de rotas Sul/Sudeste | Implementar catálogo/API real antes de ampliar cobertura |
+| Gontijo | Não há consulta automática real implementada | Portal oficial sem scraper de disponibilidade | Implementar fluxo oficial antes de exibir horários |
+| Embarca.ai | Não há consulta automática real implementada | Portal oficial sem scraper de disponibilidade | Implementar catálogo/API real antes de exibir horários |
 
 ## ClickBus
 
@@ -37,6 +37,8 @@ https://www.clickbus.com.br/onibus/rio-de-janeiro-rj/salvador-ba?departureDate=2
 O formato antigo usado pelo projeto adicionava `-todos` aos dois slugs e podia redirecionar para a página genérica. O cliente foi atualizado para remover esse sufixo.
 
 O BFF retorna `403 Forbidden` quando chamado diretamente sem a sessão e os cabeçalhos criados pelo site. Por isso, a integração precisa carregar a página com Playwright e interceptar a chamada BFF.
+
+O schema atual usa `trips`, com os dados dentro de `parts[0]`. O cliente não deve voltar a usar `departures`, que pertencia ao schema antigo.
 
 ### Código relacionado
 
@@ -99,7 +101,7 @@ Consulta direta observada:
 GET https://viajeguanabara.com.br/api/search/services/?departure_date=2026-09-10&destination=SALVADOR%20-%20BA%20-%20TODOS&origin=RIO%20DE%20JANEIRO%20-%20RJ%20-%20TODOS&passengers=1
 ```
 
-Resultado observado: HTTP `500` com corpo `{"error":"Failed to load services"}`.
+O catálogo `GET /api/cities/available/` responde `200` e contém Rio de Janeiro, São Paulo, Salvador e Belo Horizonte. Porém, a chamada de serviços usada pelo cliente retorna HTTP `500` com corpo `{"error":"Failed to load services"}` mesmo para cidades presentes no catálogo.
 
 ### Código relacionado
 
@@ -113,11 +115,13 @@ Resultado observado: HTTP `500` com corpo `{"error":"Failed to load services"}`.
 3. Verificar se a API exige cookie, token CSRF ou cabeçalho adicional.
 4. Não tratar HTTP 500 como “nenhuma viagem”; preservar o erro no diagnóstico.
 
+Enquanto o endpoint de serviços não for corrigido pelo provedor, o FastTravel deve manter Guanabara como `Erro`, não como `Online` ou `Sem oferta`.
+
 ## Gontijo
 
 ### Resultado
 
-O cliente atual não consulta a disponibilidade da Gontijo. Ele gera horários fixos somente quando a origem/destino combina com um conjunto pequeno de regras. Rio de Janeiro para Salvador não está nesse conjunto, então retorna zero resultados sem consultar a fonte oficial.
+O cliente atual não consulta a disponibilidade da Gontijo. Horários fixos que existiam no código foram removidos para evitar resultados inventados. O provedor retorna `sem_cobertura` até que o fluxo oficial seja integrado.
 
 ### Código relacionado
 
@@ -125,13 +129,13 @@ O cliente atual não consulta a disponibilidade da Gontijo. Ele gera horários f
 
 ### Risco
 
-Os horários e preços fixos podem ficar desatualizados e não devem ser apresentados como disponibilidade em tempo real. A correção adequada é integrar o fluxo oficial da Gontijo ou marcar a fonte como indisponível para consulta automática.
+A correção adequada é integrar o fluxo oficial da Gontijo ou manter a fonte marcada como indisponível para consulta automática.
 
 ## Embarca.ai
 
 ### Resultado
 
-O cliente só cria resultados para um conjunto fixo de rotas Sul/Sudeste, como São Paulo-Curitiba e Curitiba-Florianópolis. Rio de Janeiro-Salvador não está implementado e retorna zero resultados.
+O cliente não consulta disponibilidade real no momento. Dados simulados de rotas Sul/Sudeste foram removidos; a fonte retorna `sem_cobertura` até que o catálogo/API real seja integrado.
 
 ### Código relacionado
 

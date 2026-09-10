@@ -60,7 +60,9 @@ export class BuserSession {
     if (!this.browser) {
       try {
         const isServerless = Boolean(process.env.VERCEL)
-        const { chromium: playwrightChromium } = await import("playwright-core")
+        const { chromium: playwrightChromium } = isServerless
+          ? await import("playwright-core")
+          : await import("playwright")
         const chromium = isServerless ? (await import("@sparticuz/chromium")).default : null
         const launchOptions = isServerless
           ? {

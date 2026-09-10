@@ -17,7 +17,9 @@ export class ClickBusSession {
     if (!this.browser) {
       try {
         const isServerless = Boolean(process.env.VERCEL)
-        const { chromium: playwrightChromium } = await import("playwright-core")
+        const { chromium: playwrightChromium } = isServerless
+          ? await import("playwright-core")
+          : await import("playwright")
         const chromium = isServerless ? (await import("@sparticuz/chromium")).default : null
         const launchOptions = isServerless
           ? {
@@ -98,24 +100,25 @@ export class ClickBusSession {
       await page.goto(siteUrl, { waitUntil: "domcontentloaded", timeout: 35000 })
 
       for (let i = 0; i < 12; i++) {
-        if (capturedBff && capturedBff.departures) break
+        if (capturedBff && (capturedBff.trips || capturedBff.departures)) break
         await page.waitForTimeout(400)
       }
 
       page.off("response", responseHandler)
       await page.close()
 
-      const departures = capturedBff?.departures || []
+      const trips = capturedBff?.trips || capturedBff?.departures || []
       const resultados: ResultItem[] = []
       let totalVagasIdJovem = 0
 
-      for (const trip of departures) {
-        const companyName = trip.travelCompany?.name || trip.company?.name || "Viação"
+      for (const trip of trips) {
+        const part = trip.parts?.[0] || trip
+        const companyName = part.travelCompany?.name || trip.travelCompany?.name || trip.company?.name || "Viação"
         const priceNum = trip.price != null ? Number(trip.price) : undefined
-        const isLowFare = trip.isLowFare === true
-        const anttClass = trip.anttServiceClass?.name || ""
+        const isLowFare = part.isLowFare === true || trip.isLowFare === true
+        const anttClass = part.serviceClass?.name || trip.anttServiceClass?.name || ""
         const isConvencional = anttClass.toLowerCase().includes("convencional")
-        const availableSeats = trip.availableSeats ?? 0
+        const availableSeats = part.availableSeats ?? trip.availableSeats ?? 0
 
         // No modo ID Jovem: filtra tarifas low fare ou viagens convencionais com assentos livres
         const temBeneficioIdJovem = isLowFare || (isConvencional && availableSeats > 0)
@@ -128,14 +131,15 @@ export class ClickBusSession {
           totalVagasIdJovem++
         }
 
-        const horarioPartida = trip.departure?.schedule?.time?.slice(0, 5) || "N/A"
-        const horarioChegada = trip.arrival?.schedule?.time?.slice(0, 5) || "N/A"
-        const duracao =
-          typeof trip.duration?.hours === "string"
+        const horarioPartida = part.departure?.time?.slice(0, 5) || trip.departure?.schedule?.time?.slice(0, 5) || "N/A"
+        const horarioChegada = part.arrival?.time?.slice(0, 5) || trip.arrival?.schedule?.time?.slice(0, 5) || "N/A"
+        const duracao = typeof trip.duration === "string"
+          ? trip.duration
+          : typeof trip.duration?.hours === "string"
             ? trip.duration.hours
             : trip.duration?.hours
-            ? `${trip.duration.hours}h`
-            : "N/A"
+              ? `${trip.duration.hours}h`
+              : part.duration || "N/A"
 
         resultados.push({
           empresa: companyName,
@@ -144,7 +148,7 @@ export class ClickBusSession {
           duracao,
           valor: idJovem && temBeneficioIdJovem ? "R$ 0,00" : priceNum != null ? `R$ ${priceNum.toFixed(2).replace(".", ",")}` : undefined,
           valorNumerico: idJovem && temBeneficioIdJovem ? 0 : priceNum,
-          classe: trip.serviceClass?.name || anttClass || "Convencional",
+          classe: part.serviceClass?.name || trip.serviceClass?.name || anttClass || "Convencional",
           tipoGratuidade: temBeneficioIdJovem ? "id_jovem_100" : "nenhuma",
           vagasIdJovem: temBeneficioIdJovem ? 2 : 0,
           poltronasLivres: availableSeats,
