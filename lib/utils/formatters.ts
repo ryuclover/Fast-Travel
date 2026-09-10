@@ -130,7 +130,7 @@ export function montarLinkClickbus(
   const destinoSlug = formatarSlugParaUrl(destino)
 
   const url = new URL(
-    `https://www.clickbus.com.br/onibus/${origemSlug}-${origemUF.toLowerCase()}-todos/${destinoSlug}-${destinoUF.toLowerCase()}-todos`
+    `https://www.clickbus.com.br/onibus/${origemSlug}-${origemUF.toLowerCase()}/${destinoSlug}-${destinoUF.toLowerCase()}`
   )
   url.searchParams.set("departureDate", data)
   if (idJovem) {

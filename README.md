@@ -16,6 +16,8 @@
 
 [🌐 **Acessar Demonstração Online em Produção**](https://fast-travel-phi.vercel.app) • [📖 **Guia de Instalação**](#-como-rodar-o-projeto-localmente) • [🚌 **Provedores Integrados**](#-provedores-e-cobertura)
 
+[🔎 **Resultados e diagnóstico por provedor**](docs/resultados-provedores.md)
+
 <br />
 
 ![FastTravel Home](docs/screenshots/fasttravel-home.png)

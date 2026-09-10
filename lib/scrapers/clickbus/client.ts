@@ -16,11 +16,21 @@ export class ClickBusSession {
   async init() {
     if (!this.browser) {
       try {
-        const { chromium } = await import("playwright")
-        this.browser = await chromium.launch({
-          headless: true,
-          args: ["--no-sandbox", "--disable-blink-features=AutomationControlled"],
-        })
+        const isServerless = Boolean(process.env.VERCEL)
+        const { chromium: playwrightChromium } = await import("playwright-core")
+        const chromium = isServerless ? (await import("@sparticuz/chromium")).default : null
+        const launchOptions = isServerless
+          ? {
+              args: chromium!.args,
+              executablePath: await chromium!.executablePath(),
+              headless: true,
+            }
+          : {
+              args: ["--no-sandbox", "--disable-blink-features=AutomationControlled"],
+              headless: true,
+            }
+
+        this.browser = await playwrightChromium.launch(launchOptions)
         this.context = await this.browser.newContext({
           userAgent:
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -35,7 +45,7 @@ export class ClickBusSession {
           return route.continue()
         })
       } catch (err) {
-        console.warn("[ClickBus] Playwright indisponível neste ambiente (ex: Serverless / Vercel). Modo link direto ativado.")
+        console.error("[ClickBus] Não foi possível iniciar o navegador de coleta:", err)
         this.browser = null
         this.context = null
       }
@@ -50,22 +60,23 @@ export class ClickBusSession {
     dataIso: string,
     idJovem = false
   ): Promise<ScraperResult> {
-    const fromSlug = `${normalizarSlug(origem)}-${origemUF.toLowerCase()}-todos`
-    const toSlug = `${normalizarSlug(destino)}-${destinoUF.toLowerCase()}-todos`
+    const fromSlug = `${normalizarSlug(origem)}-${origemUF.toLowerCase()}`
+    const toSlug = `${normalizarSlug(destino)}-${destinoUF.toLowerCase()}`
     const siteUrl = `https://www.clickbus.com.br/onibus/${fromSlug}/${toSlug}?departureDate=${dataIso}${idJovem ? "&gratuity=true" : ""}`
 
     await this.init()
 
     if (!this.context) {
       return {
-        disponivel: true,
+        disponivel: false,
         vagasIdJovem: 0,
-        detalhes: "Consulta direta disponível via ClickBus oficial.",
+        detalhes: "ClickBus indisponível para consulta automática neste ambiente.",
         siteUrl,
         provedor: "ClickBus",
         empresa: "ClickBus",
         dataConsultada: dataIso,
         resultados: [],
+        error: "BROWSER_INIT_FAILED",
       }
     }
 
