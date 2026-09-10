@@ -27,7 +27,7 @@ export interface ScraperResult {
   error?: string
 }
 
-export type StatusProvedor = "online" | "sem_oferta" | "sem_cobertura" | "erro"
+export type StatusProvedor = "online" | "sem_oferta" | "inconclusivo" | "sem_cobertura" | "erro"
 
 export interface StatusProvedorBusca {
   provedor: string

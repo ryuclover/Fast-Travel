@@ -121,6 +121,7 @@ export function ResultsContainer({ resultado, idJovem }: ResultsContainerProps) 
   const statusLabel = {
     online: "Online",
     sem_oferta: "Sem oferta",
+    inconclusivo: "Consulta inconclusiva",
     sem_cobertura: "Sem cobertura",
     erro: "Erro",
   } as const
@@ -128,6 +129,7 @@ export function ResultsContainer({ resultado, idJovem }: ResultsContainerProps) 
   const statusStyle = {
     online: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10",
     sem_oferta: "text-amber-400 border-amber-500/30 bg-amber-500/10",
+    inconclusivo: "text-orange-300 border-orange-500/30 bg-orange-500/10",
     sem_cobertura: "text-slate-400 border-slate-500/30 bg-slate-500/10",
     erro: "text-red-400 border-red-500/30 bg-red-500/10",
   } as const
@@ -135,6 +137,7 @@ export function ResultsContainer({ resultado, idJovem }: ResultsContainerProps) 
   const statusIcon = {
     online: CheckCircle2,
     sem_oferta: CircleOff,
+    inconclusivo: CircleAlert,
     sem_cobertura: CircleOff,
     erro: CircleAlert,
   } as const

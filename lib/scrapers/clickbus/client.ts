@@ -25,6 +25,12 @@ function converterTripsClickBus(
 
   for (const trip of trips) {
     const part = trip.parts?.[0] || trip
+    const partidaData = part.departure?.date || trip.departure?.date
+    const origemSlug = part.departure?.slug || trip.departure?.slug
+    const destinoSlug = part.arrival?.slug || trip.arrival?.slug
+    if (partidaData && partidaData !== dataIso) continue
+    if (origemSlug && origemSlug !== `${normalizarSlug(origem)}-${origemUF.toLowerCase()}`) continue
+    if (destinoSlug && destinoSlug !== `${normalizarSlug(destino)}-${destinoUF.toLowerCase()}`) continue
     const companyName = part.travelCompany?.name || trip.travelCompany?.name || trip.company?.name || "Viação"
     const priceNum = trip.price != null ? Number(trip.price) : undefined
     const isLowFare = part.isLowFare === true || trip.isLowFare === true
@@ -278,6 +284,7 @@ export class ClickBusSession {
         provedor: "ClickBus",
         dataConsultada: dataIso,
         resultados,
+        error: capturedBff ? undefined : "BFF_NO_RESPONSE",
       }
     } catch (err: any) {
       page.off("response", responseHandler)
