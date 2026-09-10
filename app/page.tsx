@@ -14,6 +14,7 @@ import { Footer } from "@/components/footer"
 import { SearchForm } from "@/components/search/search-form"
 import { ResultsContainer } from "@/components/results/results-container"
 import { ResultadoBusca } from "@/types/busca"
+import type { ProvedorBusca } from "@/types/busca"
 import {
   formatarDataParaExibicao,
   filtrarPassagensIdJovem,
@@ -31,6 +32,11 @@ export default function Home() {
     formatarDataParaExibicao(new Date().toISOString().split("T")[0])
   )
   const [idJovem, setIdJovem] = useState(false)
+  const [provedoresSelecionados, setProvedoresSelecionados] = useState<ProvedorBusca[]>([
+    "ClickBus",
+    "Guanabara",
+    "Buser",
+  ])
   const [carregando, setCarregando] = useState(false)
   const [resultado, setResultado] = useState<ResultadoBusca | null>(null)
   const [erro, setErro] = useState("")
@@ -86,6 +92,7 @@ export default function Home() {
         origemUF,
         destinoUF,
         idJovem: idJovem ? "true" : "false",
+        provedores: provedoresSelecionados.join(","),
       })
 
       const response = await fetch(`/api/buscar?${params}`)
@@ -201,6 +208,8 @@ export default function Home() {
               setDataFimDisplay={setDataFimDisplay}
               idJovem={idJovem}
               setIdJovem={setIdJovem}
+              provedoresSelecionados={provedoresSelecionados}
+              setProvedoresSelecionados={setProvedoresSelecionados}
               carregando={carregando}
               progresso={progresso}
               erro={erro}

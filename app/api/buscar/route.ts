@@ -37,6 +37,7 @@ const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX_REQUESTS = 30
 const MAX_DATA_BUSCA_DIAS = 365
 const MAX_INTERVALO_BUSCA_DIAS = 7
+const PROVEDORES_DISPONIVEIS = new Set(["ClickBus", "Guanabara", "Buser"])
 const MAX_USER_AGENT_LENGTH = 120
 const MS_POR_DIA = 24 * 60 * 60 * 1000
 const registrosRateLimit = new Map<string, RegistroRateLimit>()
@@ -217,6 +218,14 @@ export async function GET(request: NextRequest) {
   }
 
   const idJovem = searchParams.get("idJovem") === "true"
+  const provedoresParam = searchParams.get("provedores")
+  const provedoresSelecionados = provedoresParam
+    ? provedoresParam.split(",").filter((provedor) => PROVEDORES_DISPONIVEIS.has(provedor))
+    : []
+
+  if (provedoresParam && provedoresSelecionados.length === 0) {
+    return NextResponse.json({ error: "Selecione ao menos um provedor válido." }, { status: 400 })
+  }
 
   try {
     const resultadoIntervalo = await compararPrecosIntervalo({
@@ -227,6 +236,7 @@ export async function GET(request: NextRequest) {
       dataInicio: inicioEfetivo,
       dataFim: fimEfetivo,
       idJovem,
+      provedores: provedoresSelecionados.length > 0 ? provedoresSelecionados as Array<"ClickBus" | "Guanabara" | "Buser"> : undefined,
       maxConcorrencia: 1,
     })
 

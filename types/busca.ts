@@ -47,6 +47,8 @@ export interface ResultadoBusca {
   statusProvedores?: StatusProvedorBusca[]
 }
 
+export type ProvedorBusca = "ClickBus" | "Guanabara" | "Buser"
+
 export type StatusProvedor = "online" | "sem_oferta" | "sem_cobertura" | "erro"
 
 export interface StatusProvedorBusca {

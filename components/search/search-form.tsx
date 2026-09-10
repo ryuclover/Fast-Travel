@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Sparkles,
   Info,
+  Check,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,6 +21,7 @@ import {
   montarLinkClickbus,
 } from "@/lib/utils/formatters"
 import { ProgressIndicator } from "./progress-indicator"
+import type { ProvedorBusca } from "@/types/busca"
 
 interface SearchFormProps {
   origemSelecionada: string
@@ -36,6 +38,8 @@ interface SearchFormProps {
   setDataFimDisplay: (valor: string) => void
   idJovem: boolean
   setIdJovem: (valor: boolean) => void
+  provedoresSelecionados: ProvedorBusca[]
+  setProvedoresSelecionados: (valor: ProvedorBusca[]) => void
   carregando: boolean
   progresso: number
   erro: string
@@ -64,6 +68,8 @@ export function SearchForm({
   setDataFimDisplay,
   idJovem,
   setIdJovem,
+  provedoresSelecionados,
+  setProvedoresSelecionados,
   carregando,
   progresso,
   erro,
@@ -71,6 +77,18 @@ export function SearchForm({
 }: SearchFormProps) {
   const dataInicioHiddenRef = useRef<HTMLInputElement>(null)
   const dataFimHiddenRef = useRef<HTMLInputElement>(null)
+  const provedoresDisponiveis: Array<{ id: ProvedorBusca; nome: string }> = [
+    { id: "ClickBus", nome: "ClickBus" },
+    { id: "Buser", nome: "Buser" },
+    { id: "Guanabara", nome: "Guanabara / UTIL" },
+  ]
+
+  const alternarProvedor = (provedor: ProvedorBusca) => {
+    const selecionados = provedoresSelecionados.includes(provedor)
+      ? provedoresSelecionados.filter((item) => item !== provedor)
+      : [...provedoresSelecionados, provedor]
+    if (selecionados.length > 0) setProvedoresSelecionados(selecionados)
+  }
 
   const handleInverterRota = () => {
     const tempOrigem = origemSelecionada
@@ -330,6 +348,45 @@ export function SearchForm({
               >
                 Apenas ID Jovem
               </button>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl border border-border/70 bg-secondary/40 space-y-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <span className="text-sm font-semibold text-foreground">Selecionar provedores</span>
+                <p className="text-xs text-muted-foreground">Escolha uma, duas ou todas as fontes disponíveis</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProvedoresSelecionados(provedoresDisponiveis.map((item) => item.id))}
+                className="text-xs font-semibold text-primary hover:underline"
+              >
+                Todos
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {provedoresDisponiveis.map((provedor) => {
+                const selecionado = provedoresSelecionados.includes(provedor.id)
+                return (
+                  <button
+                    key={provedor.id}
+                    type="button"
+                    onClick={() => alternarProvedor(provedor.id)}
+                    aria-pressed={selecionado}
+                    className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs font-semibold transition-colors ${
+                      selecionado
+                        ? "border-primary/50 bg-primary/10 text-primary"
+                        : "border-border/70 bg-background/40 text-muted-foreground"
+                    }`}
+                  >
+                    <span className={`flex h-4 w-4 items-center justify-center rounded border ${selecionado ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>
+                      {selecionado && <Check className="h-3 w-3" />}
+                    </span>
+                    {provedor.nome}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
