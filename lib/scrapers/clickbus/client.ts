@@ -167,20 +167,6 @@ export class ClickBusSession {
       console.warn("[ClickBus] Fallback HTTP indisponível; tentando navegador:", error)
     }
 
-    if (process.env.VERCEL) {
-      return {
-        disponivel: false,
-        vagasIdJovem: 0,
-        detalhes: "ClickBus bloqueou a consulta HTTP e o navegador serverless não está disponível neste ambiente.",
-        siteUrl,
-        provedor: "ClickBus",
-        empresa: "ClickBus",
-        dataConsultada: dataIso,
-        resultados: [],
-        error: "HTTP_BLOCKED_BROWSER_UNAVAILABLE",
-      }
-    }
-
     await this.init()
 
     if (!this.context) {
