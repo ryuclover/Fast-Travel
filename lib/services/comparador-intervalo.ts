@@ -206,7 +206,14 @@ export async function compararPrecosIntervalo(
             ? "online"
             : "sem_oferta"
         const anterior = statusPorProvedor.get(res.provedor)
-        if (!anterior || status === "online" || (status === "erro" && anterior.status !== "online")) {
+        const prioridadeStatus: Record<string, number> = {
+          sem_oferta: 1,
+          sem_cobertura: 2,
+          inconclusivo: 3,
+          erro: 4,
+          online: 5,
+        }
+        if (!anterior || prioridadeStatus[status] > prioridadeStatus[anterior.status]) {
           statusPorProvedor.set(res.provedor, {
             provedor: res.provedor,
             status,
