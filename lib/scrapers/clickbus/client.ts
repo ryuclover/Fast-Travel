@@ -144,7 +144,7 @@ export class ClickBusSession {
         }
       )
       const json = await response.json()
-      if (Array.isArray(json.trips)) {
+      if (Array.isArray(json.trips) && json.trips.length > 0) {
         const resultados = converterTripsClickBus(
           json.trips,
           origem,
@@ -165,6 +165,10 @@ export class ClickBusSession {
           dataConsultada: dataIso,
           resultados,
         }
+      }
+
+      if (Array.isArray(json.trips)) {
+        console.warn("[ClickBus] BFF HTTP respondeu sem viagens; confirmando pela sessão do site")
       }
     } catch (error) {
       console.warn("[ClickBus] Fallback HTTP indisponível; tentando navegador:", error)
@@ -266,7 +270,9 @@ export class ClickBusSession {
       return {
         disponivel: resultados.length > 0,
         vagasIdJovem: totalVagasIdJovem,
-        detalhes: `${resultados.length} viagem(ns) encontrada(s) na ClickBus para ${dataIso}`,
+        detalhes: capturedBff
+          ? `${resultados.length} viagem(ns) confirmada(s) pela sessão ClickBus para ${dataIso}`
+          : "ClickBus não entregou resposta BFF para esta consulta.",
         siteUrl,
         empresa: "ClickBus",
         provedor: "ClickBus",
