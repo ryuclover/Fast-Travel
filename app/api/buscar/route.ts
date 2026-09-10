@@ -254,7 +254,7 @@ export async function GET(request: NextRequest) {
               "ClickBus" | "Guanabara" | "Buser" | "Gontijo" | "Embarca" | "AguiaBranca"
             >)
           : undefined,
-      maxConcorrencia: 1,
+      maxConcorrencia: 3,
     })
 
     const passagensFormatadas = resultadoIntervalo.todasViagens.map((item) =>

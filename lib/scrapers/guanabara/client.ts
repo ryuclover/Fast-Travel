@@ -83,13 +83,15 @@ export async function fetchGuanabaraDirect(
           `https://viajeguanabara.com.br/api/search/services/?departure_date=${data}&destination=${encodeURIComponent(
             destinoApi
           )}&origin=${encodeURIComponent(origemApi)}&passengers=12:1`,
-          { headers }
+          { headers, timeoutMs: 5000 } as any,
+          1
         ).catch(() => null),
         fetchWithRetry(
           `https://viajeguanabara.com.br/api/search/services/?departure_date=${data}&destination=${encodeURIComponent(
             destinoApi
           )}&origin=${encodeURIComponent(origemApi)}&passengers=13:1`,
-          { headers }
+          { headers, timeoutMs: 5000 } as any,
+          1
         ).catch(() => null),
       ])
 
@@ -182,10 +184,11 @@ export async function fetchGuanabaraDirect(
         `https://viajeguanabara.com.br/api/search/services/?departure_date=${data}&destination=${encodeURIComponent(
           destinoApi
         )}&origin=${encodeURIComponent(origemApi)}&passengers=1`,
-        { headers }
-      )
+        { headers, timeoutMs: 5000 } as any,
+        1
+      ).catch(() => null)
 
-      if (resp.ok) {
+      if (resp && resp.ok) {
         const json = await resp.json()
         const trips = (json.trips || []) as GuanabaraTrip[]
 

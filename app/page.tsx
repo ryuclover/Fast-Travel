@@ -99,6 +99,16 @@ export default function Home() {
       })
 
       const response = await fetch(`/api/buscar?${params}`)
+      const contentType = response.headers.get("content-type") || ""
+
+      if (!contentType.includes("application/json")) {
+        const errorText = await response.text()
+        if (response.status === 504 || response.status === 408) {
+          throw new Error("A consulta demorou muito para responder no servidor. Tente reduzir o intervalo de datas ou consultar menos provedores simultaneamente.")
+        }
+        throw new Error(errorText.slice(0, 150) || "Erro inesperado do servidor.")
+      }
+
       const dados = (await response.json()) as ResultadoBusca
 
       if (!response.ok) {

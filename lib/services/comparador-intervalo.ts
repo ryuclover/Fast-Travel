@@ -19,7 +19,7 @@ export interface CompararIntervaloParams {
   maxConcorrencia?: number
 }
 
-const TIMEOUT_PROVEDOR_MS = 10_000
+const TIMEOUT_PROVEDOR_MS = 7_000
 
 function gerarListaDatas(dataInicio: string, dataFim: string): string[] {
   const inicio = new Date(`${dataInicio}T00:00:00`)
@@ -110,10 +110,9 @@ export async function compararPrecosIntervalo(
         }))
       )
 
-      const resultadosProvedores: ScraperResult[] = []
-      for (const tarefa of tarefasProvedores) {
-        resultadosProvedores.push(await tarefa())
-      }
+      const resultadosProvedores: ScraperResult[] = await Promise.all(
+        tarefasProvedores.map((tarefa) => tarefa())
+      )
       const viagensDoDia: ResultItem[] = []
 
       for (const res of resultadosProvedores) {
@@ -131,16 +130,17 @@ export async function compararPrecosIntervalo(
       }
 
       for (const res of resultadosProvedores) {
+        const provedorKey = res.provedor === "Embarca.ai" ? "Embarca" : res.provedor
         const status = res.error === "COVERAGE_NOT_IMPLEMENTED"
           ? "sem_cobertura"
           : res.error === "BFF_NO_RESPONSE"
             ? "inconclusivo"
-          : res.error
-            ? "erro"
           : res.resultados.length > 0
             ? "online"
-            : "sem_oferta"
-        const anterior = statusPorProvedor.get(res.provedor)
+          : res.error
+            ? "erro"
+          : "sem_oferta"
+        const anterior = statusPorProvedor.get(provedorKey)
         const prioridadeStatus: Record<string, number> = {
           sem_oferta: 1,
           sem_cobertura: 2,
@@ -149,8 +149,8 @@ export async function compararPrecosIntervalo(
           online: 5,
         }
         if (!anterior || prioridadeStatus[status] > prioridadeStatus[anterior.status]) {
-          statusPorProvedor.set(res.provedor, {
-            provedor: res.provedor,
+          statusPorProvedor.set(provedorKey, {
+            provedor: provedorKey,
             status,
             detalhes: res.detalhes,
           })
