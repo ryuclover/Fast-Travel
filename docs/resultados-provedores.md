@@ -48,6 +48,8 @@ O BFF retorna `403 Forbidden` quando chamado diretamente sem a sessão e os cabe
 
 O schema atual usa `trips`, com os dados dentro de `parts[0]`. O cliente não deve voltar a usar `departures`, que pertencia ao schema antigo.
 
+Foi testada uma alternativa HTTP direta ao BFF v6, incluindo cookies, `x-customer-session-id`, `x-transaction-id`, `fp-cb` e `st-cb-px`. O BFF continua respondendo `403` fora do contexto JavaScript completo do site. Na Vercel, o cliente retorna `HTTP_BLOCKED_BROWSER_UNAVAILABLE` rapidamente em vez de aguardar um Chromium ausente.
+
 ### Código relacionado
 
 - Cliente: `lib/scrapers/clickbus/client.ts`

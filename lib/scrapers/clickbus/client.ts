@@ -1,4 +1,6 @@
 import { ResultItem, ScraperResult } from "../types"
+import { fetchWithRetry } from "../../http-client"
+import { randomUUID } from "node:crypto"
 
 function normalizarSlug(cidade: string): string {
   return cidade
@@ -7,6 +9,59 @@ function normalizarSlug(cidade: string): string {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, "-")
     .replace(/[^a-z0-9-]/g, "")
+}
+
+function converterTripsClickBus(
+  trips: any[],
+  origem: string,
+  origemUF: string,
+  destino: string,
+  destinoUF: string,
+  dataIso: string,
+  siteUrl: string,
+  idJovem: boolean
+): ResultItem[] {
+  const resultados: ResultItem[] = []
+
+  for (const trip of trips) {
+    const part = trip.parts?.[0] || trip
+    const companyName = part.travelCompany?.name || trip.travelCompany?.name || trip.company?.name || "Viação"
+    const priceNum = trip.price != null ? Number(trip.price) : undefined
+    const isLowFare = part.isLowFare === true || trip.isLowFare === true
+    const anttClass = part.serviceClass?.name || trip.anttServiceClass?.name || ""
+    const isConvencional = anttClass.toLowerCase().includes("convencional")
+    const availableSeats = part.availableSeats ?? trip.availableSeats ?? 0
+    const temBeneficioIdJovem = isLowFare || (isConvencional && availableSeats > 0)
+
+    if (idJovem && !temBeneficioIdJovem) continue
+
+    resultados.push({
+      empresa: companyName,
+      horario: part.departure?.time?.slice(0, 5) || trip.departure?.schedule?.time?.slice(0, 5) || "N/A",
+      chegada: part.arrival?.time?.slice(0, 5) || trip.arrival?.schedule?.time?.slice(0, 5) || "N/A",
+      duracao: typeof trip.duration === "string"
+        ? trip.duration
+        : typeof trip.duration?.hours === "string"
+          ? trip.duration.hours
+          : part.duration || "N/A",
+      valor: idJovem && temBeneficioIdJovem
+        ? "R$ 0,00"
+        : priceNum != null
+          ? `R$ ${priceNum.toFixed(2).replace(".", ",")}`
+          : undefined,
+      valorNumerico: idJovem && temBeneficioIdJovem ? 0 : priceNum,
+      classe: part.serviceClass?.name || trip.serviceClass?.name || anttClass || "Convencional",
+      tipoGratuidade: temBeneficioIdJovem ? "id_jovem_100" : "nenhuma",
+      vagasIdJovem: temBeneficioIdJovem ? 2 : 0,
+      poltronasLivres: availableSeats,
+      origem: `${origem} - ${origemUF}`,
+      destino: `${destino} - ${destinoUF}`,
+      data: dataIso,
+      linkCompra: siteUrl,
+    })
+  }
+
+  return resultados
 }
 
 export class ClickBusSession {
@@ -65,6 +120,61 @@ export class ClickBusSession {
     const fromSlug = `${normalizarSlug(origem)}-${origemUF.toLowerCase()}`
     const toSlug = `${normalizarSlug(destino)}-${destinoUF.toLowerCase()}`
     const siteUrl = `https://www.clickbus.com.br/onibus/${fromSlug}/${toSlug}?departureDate=${dataIso}${idJovem ? "&gratuity=true" : ""}`
+
+    try {
+      const response = await fetchWithRetry(
+        `https://bff.clickbus.com/web/api/v6/trips?from=${fromSlug}&to=${toSlug}&departureDate=${dataIso}&clientId=2`,
+        {
+          headers: {
+            Accept: "application/json, text/plain, */*",
+            Referer: "https://www.clickbus.com.br/",
+            "cb-front-version": "0.15.108",
+            "content-type": "application/json",
+            "x-transaction-id": `SEARCH-MFE-${randomUUID()}`,
+            "x-customer-session-id": `Web-${randomUUID()}`,
+          },
+        }
+      )
+      const json = await response.json()
+      if (Array.isArray(json.trips)) {
+        const resultados = converterTripsClickBus(
+          json.trips,
+          origem,
+          origemUF,
+          destino,
+          destinoUF,
+          dataIso,
+          siteUrl,
+          idJovem
+        )
+        return {
+          disponivel: resultados.length > 0,
+          vagasIdJovem: resultados.reduce((total, item) => total + (item.vagasIdJovem || 0), 0),
+          detalhes: `${resultados.length} viagem(ns) encontrada(s) na ClickBus para ${dataIso}`,
+          siteUrl,
+          empresa: "ClickBus",
+          provedor: "ClickBus",
+          dataConsultada: dataIso,
+          resultados,
+        }
+      }
+    } catch (error) {
+      console.warn("[ClickBus] Fallback HTTP indisponível; tentando navegador:", error)
+    }
+
+    if (process.env.VERCEL) {
+      return {
+        disponivel: false,
+        vagasIdJovem: 0,
+        detalhes: "ClickBus bloqueou a consulta HTTP e o navegador serverless não está disponível neste ambiente.",
+        siteUrl,
+        provedor: "ClickBus",
+        empresa: "ClickBus",
+        dataConsultada: dataIso,
+        resultados: [],
+        error: "HTTP_BLOCKED_BROWSER_UNAVAILABLE",
+      }
+    }
 
     await this.init()
 
