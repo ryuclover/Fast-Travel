@@ -44,6 +44,15 @@ export interface ResultadoBusca {
   menorPrecoPeriodo?: number
   empresaCampeaoPeriodo?: string
   resumoPorDia?: ResumoDia[]
+  statusProvedores?: StatusProvedorBusca[]
+}
+
+export type StatusProvedor = "online" | "sem_oferta" | "sem_cobertura" | "erro"
+
+export interface StatusProvedorBusca {
+  provedor: string
+  status: StatusProvedor
+  detalhes: string
 }
 
 export interface BlocoData {

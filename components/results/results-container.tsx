@@ -22,6 +22,7 @@ import { DateTimeline } from "./date-timeline"
 import { FiltersBar } from "./filters-bar"
 import { TripCard } from "./trip-card"
 import { IdJovemGuideModal } from "./id-jovem-guide-modal"
+import { CheckCircle2, CircleAlert, CircleOff, Radio } from "lucide-react"
 
 interface ResultsContainerProps {
   resultado: ResultadoBusca
@@ -117,6 +118,27 @@ export function ResultsContainer({ resultado, idJovem }: ResultsContainerProps) 
     setOrdenacao("valor")
   }
 
+  const statusLabel = {
+    online: "Online",
+    sem_oferta: "Sem oferta",
+    sem_cobertura: "Sem cobertura",
+    erro: "Erro",
+  } as const
+
+  const statusStyle = {
+    online: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10",
+    sem_oferta: "text-amber-400 border-amber-500/30 bg-amber-500/10",
+    sem_cobertura: "text-slate-400 border-slate-500/30 bg-slate-500/10",
+    erro: "text-red-400 border-red-500/30 bg-red-500/10",
+  } as const
+
+  const statusIcon = {
+    online: CheckCircle2,
+    sem_oferta: CircleOff,
+    sem_cobertura: CircleOff,
+    erro: CircleAlert,
+  } as const
+
   return (
     <section className="w-full max-w-5xl mx-auto space-y-6 mt-8">
       {/* Cabeçalho de Rota e Metadados */}
@@ -148,6 +170,31 @@ export function ResultsContainer({ resultado, idJovem }: ResultsContainerProps) 
           )}
         </div>
       </div>
+
+      {resultado.statusProvedores && resultado.statusProvedores.length > 0 && (
+        <div className="p-4 rounded-2xl bg-card/60 border border-border/70 backdrop-blur-md">
+          <div className="flex items-center gap-2 mb-3">
+            <Radio className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-bold text-foreground">Estado dos provedores</h3>
+            <span className="text-[11px] text-muted-foreground">nesta consulta</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {resultado.statusProvedores.map((provedor) => {
+              const Icon = statusIcon[provedor.status]
+              return (
+                <span
+                  key={provedor.provedor}
+                  title={provedor.detalhes}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold ${statusStyle[provedor.status]}`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {provedor.provedor}: {statusLabel[provedor.status]}
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Banner da Melhor Oferta do Período */}
       {resultado.melhorDataPeriodo && (

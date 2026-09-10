@@ -3,6 +3,7 @@ import {
   ScraperResult,
   ResultadoComparacaoIntervalo,
   ResumoDia,
+  StatusProvedorBusca,
 } from "../scrapers/types"
 import { scrapeClickBus } from "../scrapers/clickbus"
 import { scrapeGontijo } from "../scrapers/gontijo"
@@ -75,6 +76,7 @@ export async function compararPrecosIntervalo(
   const datas = gerarListaDatas(dataInicio, dataFim)
   const todasViagens: ResultItem[] = []
   const resumoPorDia: ResumoDia[] = []
+  const statusPorProvedor = new Map<string, StatusProvedorBusca>()
 
   // Consulta por data com controle de concorrência
   const resultadosPorData = await mapConcorrente(
@@ -175,6 +177,22 @@ export async function compararPrecosIntervalo(
         }
       }
 
+      for (const res of resultadosProvedores) {
+        const status = res.error
+          ? "erro"
+          : res.resultados.length > 0
+            ? "online"
+            : "sem_oferta"
+        const anterior = statusPorProvedor.get(res.provedor)
+        if (!anterior || status === "online" || (status === "erro" && anterior.status !== "online")) {
+          statusPorProvedor.set(res.provedor, {
+            provedor: res.provedor,
+            status,
+            detalhes: res.detalhes,
+          })
+        }
+      }
+
       return { dataIso, viagensDoDia }
     }
   )
@@ -255,5 +273,6 @@ export async function compararPrecosIntervalo(
     resumoPorDia,
     todasViagens,
     totalViagensEncontradas: todasViagens.length,
+    statusProvedores: Array.from(statusPorProvedor.values()),
   }
 }

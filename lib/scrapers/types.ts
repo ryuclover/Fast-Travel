@@ -27,6 +27,14 @@ export interface ScraperResult {
   error?: string
 }
 
+export type StatusProvedor = "online" | "sem_oferta" | "sem_cobertura" | "erro"
+
+export interface StatusProvedorBusca {
+  provedor: string
+  status: StatusProvedor
+  detalhes: string
+}
+
 export interface ResumoDia {
   data: string
   menorValor?: number
@@ -49,4 +57,5 @@ export interface ResultadoComparacaoIntervalo {
   resumoPorDia: ResumoDia[]
   todasViagens: ResultItem[]
   totalViagensEncontradas: number
+  statusProvedores: StatusProvedorBusca[]
 }

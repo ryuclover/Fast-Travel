@@ -6,35 +6,35 @@ const provedoresIntegrados = [
     tipo: "Agregador Nacional",
     desc: "Cobre mais de 200 viações (Catarinense, Cometa, 1001, Águia Branca e outras)",
     url: "https://www.clickbus.com.br",
-    status: "Ativo",
+    status: "Verificação dinâmica",
   },
   {
     nome: "Buser",
     tipo: "Fretamento Colaborativo",
     desc: "Melhores tarifas low-cost para trechos populares e capitais",
     url: "https://www.buser.com.br",
-    status: "Ativo",
+    status: "Verificação dinâmica",
   },
   {
     nome: "Guanabara",
     tipo: "Viação Interestadual",
     desc: "Linhas interestaduais com suporte oficial a ID Jovem",
     url: "https://viajeguanabara.com.br",
-    status: "Ativo",
+    status: "Verificação dinâmica",
   },
   {
     nome: "Gontijo",
     tipo: "Viação Interestadual",
     desc: "Frota que conecta MG, SP, RJ e todo o Nordeste brasileiro com formulário JVVN",
     url: "https://www.gontijo.com.br/gratuidade",
-    status: "Ativo",
+    status: "Verificação dinâmica",
   },
   {
     nome: "Embarca.ai",
     tipo: "Plataforma de Linhas Regulares",
     desc: "Parcerias de transporte no Sul e Sudeste (Garcia, Brasil Sul, Santo Anjo) com canal de benefícios",
     url: "https://www.embarca.ai",
-    status: "Ativo",
+    status: "Verificação dinâmica",
   },
 ]
 
@@ -83,7 +83,7 @@ export function Footer() {
                       {prov.nome}
                       <ExternalLink className="w-3 h-3 opacity-60 group-hover:opacity-100 transition-opacity" />
                     </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium border border-emerald-500/20">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-300 font-medium border border-sky-500/20">
                       {prov.status}
                     </span>
                   </div>

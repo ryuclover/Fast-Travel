@@ -248,6 +248,7 @@ export async function GET(request: NextRequest) {
       menorPrecoPeriodo: resultadoIntervalo.menorPrecoPeriodo,
       empresaCampeaoPeriodo: resultadoIntervalo.empresaCampeaoPeriodo,
       resumoPorDia: resultadoIntervalo.resumoPorDia,
+      statusProvedores: resultadoIntervalo.statusProvedores,
     })
   } catch (error) {
     console.error("Erro na busca de passagens:", error)
