@@ -14,13 +14,69 @@ function montarSlugEmbarca(cidade: string, uf: string): string {
   const nomeLimpo = normalizarTexto(cidade)
   const ufLimpa = uf.toLowerCase().trim()
 
-  // Polos metropolitanos com múltiplos terminais mapeados pela Embarca.ai
-  const polosComTodos = new Set(["rio-de-janeiro", "sao-paulo", "belo-horizonte", "curitiba"])
+  // Polos metropolitanos com múltiplos terminais mapeados com sufixo -todos pela Embarca.ai
+  const polosComTodos = new Set(["rio-de-janeiro", "sao-paulo"])
   if (polosComTodos.has(nomeLimpo)) {
     return `${nomeLimpo}-${ufLimpa}-todos`
   }
 
   return `${nomeLimpo}-${ufLimpa}`
+}
+
+function extrairInitialTripsJson(html: string): any[] | null {
+  const searchKey = 'initialTrips\\":'
+  const startIdx = html.indexOf(searchKey)
+  if (startIdx === -1) return null
+
+  const afterKey = startIdx + searchKey.length
+  // Encontra o primeiro '[' após initialTrips\":
+  const jsonStart = html.indexOf("[", afterKey)
+  if (jsonStart === -1 || jsonStart - afterKey > 20) return null
+
+  let depth = 0
+  let inEscapedString = false
+  let jsonEnd = -1
+
+  for (let i = jsonStart; i < html.length; i++) {
+    // Detecta delimitador de string escapada: \"
+    if (html[i] === "\\" && html[i + 1] === '"') {
+      // Verifica se a barra não foi escapada por outra barra anterior
+      let backslashCount = 0
+      let k = i - 1
+      while (k >= jsonStart && html[k] === "\\") {
+        backslashCount++
+        k--
+      }
+      if (backslashCount % 2 === 0) {
+        inEscapedString = !inEscapedString
+      }
+      i++ // pula o '"'
+      continue
+    }
+
+    if (!inEscapedString) {
+      if (html[i] === "[") {
+        depth++
+      } else if (html[i] === "]") {
+        depth--
+        if (depth === 0) {
+          jsonEnd = i + 1
+          break
+        }
+      }
+    }
+  }
+
+  if (jsonEnd === -1) return null
+
+  try {
+    const rawSlice = html.slice(jsonStart, jsonEnd)
+    const cleanJson = rawSlice.replace(/\\"/g, '"').replace(/\\\\/g, "\\")
+    const parsed = JSON.parse(cleanJson)
+    return Array.isArray(parsed) ? parsed : null
+  } catch (err) {
+    return null
+  }
 }
 
 export async function scrapeEmbarca(
@@ -70,15 +126,10 @@ export async function scrapeEmbarca(
     const html = await response.text()
     const resultados: ResultItem[] = []
 
-    // 1. Extração do streaming Next.js Server Components flight data (initialTrips)
-    const matchTrips = html.match(/initialTrips\\":\[([\s\S]*?)\]/)
-    if (matchTrips && matchTrips[1]) {
-      try {
-        const rawJson = `[${matchTrips[1].replace(/\\"/g, '"')}]`
-        const trips = JSON.parse(rawJson)
-
-        if (Array.isArray(trips)) {
-          for (const t of trips) {
+    // 1. Extração robusta de initialTrips do streaming Next.js Server Components
+    const trips = extrairInitialTripsJson(html)
+    if (trips && trips.length > 0) {
+      for (const t of trips) {
             const empresa = t.operator_name || t.operator?.name || "Embarca.ai"
             const partida = t.departure_at ? t.departure_at.slice(11, 16) : undefined
             const chegada = t.arrival_at ? t.arrival_at.slice(11, 16) : undefined
@@ -129,10 +180,6 @@ export async function scrapeEmbarca(
             }
           }
         }
-      } catch (e) {
-        console.warn("Falha ao parsear initialTrips do Embarca.ai:", e)
-      }
-    }
 
     // 2. Fallback JSON-LD BusTrip se initialTrips não foi capturado
     if (resultados.length === 0) {
@@ -205,3 +252,6 @@ export async function scrapeEmbarca(
     }
   }
 }
+
+export const consultarEmbarca = scrapeEmbarca
+
