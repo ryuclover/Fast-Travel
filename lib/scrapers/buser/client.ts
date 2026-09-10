@@ -120,30 +120,28 @@ export class BuserSession {
     const toSlug = normalizarSlugBuser(destino, destinoUF)
     const siteUrl = `https://www.buser.com.br/onibus/${fromSlug}/${toSlug}?ida=${dataIso}`
 
-    if (process.env.VERCEL) {
-      try {
-        const response = await fetchWithRetry(siteUrl, {
-          headers: {
-            Accept: "text/html,application/xhtml+xml",
-            Referer: "https://www.buser.com.br/",
-          },
-        })
-        const resultados = extrairViagensDoHtml(await response.text(), siteUrl)
-        if (resultados.length > 0) {
-          return {
-            disponivel: true,
-            vagasIdJovem: 0,
-            detalhes: `${resultados.length} opção(ões) de fretamento encontradas na Buser para ${dataIso}`,
-            siteUrl,
-            provedor: "Buser",
-            empresa: "Buser",
-            dataConsultada: dataIso,
-            resultados,
-          }
+    try {
+      const response = await fetchWithRetry(siteUrl, {
+        headers: {
+          Accept: "text/html,application/xhtml+xml",
+          Referer: "https://www.buser.com.br/",
+        },
+      })
+      const resultados = extrairViagensDoHtml(await response.text(), siteUrl)
+      if (resultados.length > 0) {
+        return {
+          disponivel: true,
+          vagasIdJovem: 0,
+          detalhes: `${resultados.length} opção(ões) de fretamento encontradas na Buser para ${dataIso}`,
+          siteUrl,
+          provedor: "Buser",
+          empresa: "Buser",
+          dataConsultada: dataIso,
+          resultados,
         }
-      } catch (err) {
-        console.warn("[Buser] Falha no fallback HTML:", err)
       }
+    } catch (err) {
+      console.warn("[Buser] Falha no fallback HTML:", err)
     }
 
     await this.init()
