@@ -3,7 +3,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  serverExternalPackages: ["puppeteer"],
+  serverExternalPackages: ["puppeteer", "playwright-core", "@sparticuz/chromium"],
   images: {
     unoptimized: false,
   },
