@@ -67,6 +67,7 @@ function converterTripsClickBus(
 export class ClickBusSession {
   private browser: any = null
   private context: any = null
+  private browserInitError = ""
 
   async init() {
     if (!this.browser) {
@@ -76,6 +77,7 @@ export class ClickBusSession {
           ? await import("playwright-core")
           : await import("playwright")
         const chromium = isServerless ? (await import("@sparticuz/chromium")).default : null
+        if (chromium) chromium.setGraphicsMode = false
         const launchOptions = isServerless
           ? {
               args: chromium!.args,
@@ -102,6 +104,7 @@ export class ClickBusSession {
           return route.continue()
         })
       } catch (err) {
+        this.browserInitError = err instanceof Error ? err.message : String(err)
         console.error("[ClickBus] Não foi possível iniciar o navegador de coleta:", {
           node: process.version,
           platform: process.platform,
@@ -173,7 +176,7 @@ export class ClickBusSession {
       return {
         disponivel: false,
         vagasIdJovem: 0,
-        detalhes: "ClickBus indisponível para consulta automática neste ambiente.",
+        detalhes: `ClickBus indisponível para consulta automática: ${this.browserInitError || "erro desconhecido"}`,
         siteUrl,
         provedor: "ClickBus",
         empresa: "ClickBus",
