@@ -1,4 +1,5 @@
 import { ResultItem, ScraperResult } from "../types"
+import { fetchWithRetry } from "../../http-client"
 
 function normalizarSlugBuser(cidade: string, uf: string): string {
   const clean = cidade
@@ -8,6 +9,47 @@ function normalizarSlugBuser(cidade: string, uf: string): string {
     .replace(/\s+/g, "-")
     .replace(/[^a-z0-9-]/g, "")
   return `${clean}-${uf.toLowerCase()}`
+}
+
+function extrairViagensDoHtml(html: string, urlCompra: string): ResultItem[] {
+  const resultados: ResultItem[] = []
+  const blocos = html.split(/grupo-novo-card/).slice(1)
+
+  for (const bloco of blocos) {
+    const precoMatch = bloco.match(/p-preco[^>]*>(?:[^<]*<[^>]+>)*\s*R\$\s*([\d.,]+)/)
+    const horarios = [...bloco.matchAll(/ird-hora[^>]*>(\d{2}:\d{2})</g)].map((match) => match[1])
+    if (!precoMatch || horarios.length < 2) continue
+
+    const precoTexto = precoMatch[1]
+    const precoNumerico = Number(precoTexto.replace(/\./g, "").replace(",", "."))
+    if (!Number.isFinite(precoNumerico)) continue
+
+    const duracaoMatch = bloco.match(/duracao-ida="(\d+)"/)
+    const duracaoMinutos = duracaoMatch ? Math.round(Number(duracaoMatch[1]) / 60000) : 0
+    const duracao = duracaoMinutos
+      ? `${Math.floor(duracaoMinutos / 60)}h${String(duracaoMinutos % 60).padStart(2, "0")}min`
+      : "Direto"
+
+    resultados.push({
+      empresa: "Buser",
+      horario: horarios[0],
+      chegada: horarios[1],
+      duracao,
+      valor: `R$ ${precoNumerico.toFixed(2).replace(".", ",")}`,
+      valorNumerico: precoNumerico,
+      classe: /executivo/i.test(bloco) ? "Executivo" : "Semi-leito",
+      tipoGratuidade: "nenhuma",
+      vagasIdJovem: 0,
+      linkCompra: urlCompra,
+    })
+  }
+
+  const unicos = new Map<string, ResultItem>()
+  for (const resultado of resultados) {
+    const chave = `${resultado.horario}-${resultado.chegada}-${resultado.valorNumerico}-${resultado.classe}`
+    if (!unicos.has(chave)) unicos.set(chave, resultado)
+  }
+  return Array.from(unicos.values())
 }
 
 export class BuserSession {
@@ -77,6 +119,32 @@ export class BuserSession {
     const fromSlug = normalizarSlugBuser(origem, origemUF)
     const toSlug = normalizarSlugBuser(destino, destinoUF)
     const siteUrl = `https://www.buser.com.br/onibus/${fromSlug}/${toSlug}?ida=${dataIso}`
+
+    if (process.env.VERCEL) {
+      try {
+        const response = await fetchWithRetry(siteUrl, {
+          headers: {
+            Accept: "text/html,application/xhtml+xml",
+            Referer: "https://www.buser.com.br/",
+          },
+        })
+        const resultados = extrairViagensDoHtml(await response.text(), siteUrl)
+        if (resultados.length > 0) {
+          return {
+            disponivel: true,
+            vagasIdJovem: 0,
+            detalhes: `${resultados.length} opção(ões) de fretamento encontradas na Buser para ${dataIso}`,
+            siteUrl,
+            provedor: "Buser",
+            empresa: "Buser",
+            dataConsultada: dataIso,
+            resultados,
+          }
+        }
+      } catch (err) {
+        console.warn("[Buser] Falha no fallback HTML:", err)
+      }
+    }
 
     await this.init()
 

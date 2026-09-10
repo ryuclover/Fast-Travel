@@ -81,6 +81,10 @@ https://www.buser.com.br/onibus/rio-de-janeiro-rj/salvador-ba?ida=2026-09-11
 - Cliente: `lib/scrapers/buser/client.ts`
 - Orquestração: `lib/services/comparador-intervalo.ts`
 
+### Implementação serverless
+
+Na Vercel, o cliente tenta primeiro ler os cards SSR da resposta HTML. Esse fallback evita depender do Chromium dentro da função serverless e foi validado para Rio-Salvador em 11/09/2026. O Playwright continua como fallback para ambientes locais ou quando a página não entrega cards SSR.
+
 ### Limitações
 
 A extração depende dos seletores `.grupo-novo-card` e `.itinerario-resumido-novo-card`. Uma alteração visual na Buser pode resultar em zero sem indicar erro. O diagnóstico deve registrar quantidade de cards encontrados e quantidade de cards com preço.
