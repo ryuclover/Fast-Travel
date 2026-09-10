@@ -4,7 +4,7 @@ const USER_AGENTS = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0",
 ];
 
-export async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3): Promise<Response> {
+export async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 2): Promise<Response> {
   const userAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
   
   const headers = new Headers(options.headers || {});
@@ -21,7 +21,8 @@ export async function fetchWithRetry(url: string, options: RequestInit = {}, ret
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s timeout
+      const timeoutMs = (options as RequestInit & { timeoutMs?: number }).timeoutMs ?? 12000
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
       
       const response = await fetch(url, {
         ...options,

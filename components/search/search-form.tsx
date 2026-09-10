@@ -126,6 +126,8 @@ export function SearchForm({
     setDataFimDisplay(formatarDataParaExibicao(isoFim))
   }
 
+  const MAX_DIAS_INTERVALO = 7
+
   const aplicarFimDeSemana = () => {
     const hoje = new Date()
     const diaSemana = hoje.getDay() // 0 = Domingo, 5 = Sexta
@@ -150,7 +152,10 @@ export function SearchForm({
       ? (() => {
           const inicio = new Date(`${dataInicio}T00:00:00`)
           const fim = new Date(`${dataFim}T00:00:00`)
-          const dias = Math.max(0, Math.floor((fim.getTime() - inicio.getTime()) / 86400000) + 1)
+          const dias = Math.min(
+            MAX_DIAS_INTERVALO,
+            Math.max(0, Math.floor((fim.getTime() - inicio.getTime()) / 86400000) + 1)
+          )
           if (dias <= 0) return []
 
           const [origem, origemUF] = origemSelecionada.split("::")
@@ -365,7 +370,7 @@ export function SearchForm({
                   onClick={() => aplicarPresetIntervalo(7)}
                   className="text-xs px-2 py-0.5 rounded-md bg-secondary/80 hover:bg-secondary text-muted-foreground hover:text-foreground border border-border/60 transition-colors"
                 >
-                  +7 dias
+                  +7 dias (máx.)
                 </button>
                 <button
                   type="button"

@@ -23,6 +23,8 @@ export interface CompararIntervaloParams {
   maxConcorrencia?: number
 }
 
+const TIMEOUT_PROVEDOR_MS = 10_000
+
 function gerarListaDatas(dataInicio: string, dataFim: string): string[] {
   const inicio = new Date(`${dataInicio}T00:00:00`)
   const fim = new Date(`${dataFim}T00:00:00`)
@@ -58,6 +60,19 @@ async function mapConcorrente<T, R>(
   return resultados
 }
 
+async function executarComTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error("PROVIDER_TIMEOUT")), timeoutMs)
+  })
+
+  try {
+    return await Promise.race([promise, timeout])
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId)
+  }
+}
+
 export async function compararPrecosIntervalo(
   params: CompararIntervaloParams
 ): Promise<ResultadoComparacaoIntervalo> {
@@ -70,7 +85,7 @@ export async function compararPrecosIntervalo(
     dataFim,
     idJovem = false,
     provedores = ["ClickBus", "Gontijo", "Guanabara", "Buser", "Embarca"],
-    maxConcorrencia = 3,
+    maxConcorrencia = 1,
   } = params
 
   const datas = gerarListaDatas(dataInicio, dataFim)
@@ -83,11 +98,11 @@ export async function compararPrecosIntervalo(
     datas,
     maxConcorrencia,
     async (dataIso) => {
-      const promessasProvedores: Promise<ScraperResult>[] = []
+      const tarefasProvedores: Array<() => Promise<ScraperResult>> = []
 
       if (provedores.includes("ClickBus")) {
-        promessasProvedores.push(
-          scrapeClickBus(origem, destino, dataIso, origemUF, destinoUF, idJovem).catch((err) => ({
+        tarefasProvedores.push(() =>
+          executarComTimeout(scrapeClickBus(origem, destino, dataIso, origemUF, destinoUF, idJovem), TIMEOUT_PROVEDOR_MS).catch((err) => ({
             disponivel: false,
             vagasIdJovem: 0,
             detalhes: "Erro ClickBus",
@@ -101,8 +116,8 @@ export async function compararPrecosIntervalo(
       }
 
       if (provedores.includes("Gontijo")) {
-        promessasProvedores.push(
-          scrapeGontijo(origem, origemUF, destino, destinoUF, dataIso, idJovem).catch((err) => ({
+        tarefasProvedores.push(() =>
+          executarComTimeout(scrapeGontijo(origem, origemUF, destino, destinoUF, dataIso, idJovem), TIMEOUT_PROVEDOR_MS).catch((err) => ({
             disponivel: false,
             vagasIdJovem: 0,
             detalhes: "Erro Gontijo",
@@ -116,8 +131,8 @@ export async function compararPrecosIntervalo(
       }
 
       if (provedores.includes("Guanabara")) {
-        promessasProvedores.push(
-          scrapeGuanabara(origem, destino, dataIso, origemUF, destinoUF, idJovem).catch((err) => ({
+        tarefasProvedores.push(() =>
+          executarComTimeout(scrapeGuanabara(origem, destino, dataIso, origemUF, destinoUF, idJovem), TIMEOUT_PROVEDOR_MS).catch((err) => ({
             disponivel: false,
             vagasIdJovem: 0,
             detalhes: "Erro Guanabara",
@@ -131,8 +146,8 @@ export async function compararPrecosIntervalo(
       }
 
       if (provedores.includes("Buser") && !idJovem) {
-        promessasProvedores.push(
-          scrapeBuser(origem, origemUF, destino, destinoUF, dataIso, idJovem).catch((err) => ({
+        tarefasProvedores.push(() =>
+          executarComTimeout(scrapeBuser(origem, origemUF, destino, destinoUF, dataIso, idJovem), TIMEOUT_PROVEDOR_MS).catch((err) => ({
             disponivel: false,
             vagasIdJovem: 0,
             detalhes: "Erro Buser",
@@ -146,8 +161,8 @@ export async function compararPrecosIntervalo(
       }
 
       if (provedores.includes("Embarca")) {
-        promessasProvedores.push(
-          scrapeEmbarca(origem, origemUF, destino, destinoUF, dataIso, idJovem).catch((err) => ({
+        tarefasProvedores.push(() =>
+          executarComTimeout(scrapeEmbarca(origem, origemUF, destino, destinoUF, dataIso, idJovem), TIMEOUT_PROVEDOR_MS).catch((err) => ({
             disponivel: false,
             vagasIdJovem: 0,
             detalhes: "Erro Embarca.ai",
@@ -160,7 +175,10 @@ export async function compararPrecosIntervalo(
         )
       }
 
-      const resultadosProvedores = await Promise.all(promessasProvedores)
+      const resultadosProvedores: ScraperResult[] = []
+      for (const tarefa of tarefasProvedores) {
+        resultadosProvedores.push(await tarefa())
+      }
       const viagensDoDia: ResultItem[] = []
 
       for (const res of resultadosProvedores) {

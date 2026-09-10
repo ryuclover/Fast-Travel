@@ -36,6 +36,7 @@ interface RegistroRateLimit {
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX_REQUESTS = 30
 const MAX_DATA_BUSCA_DIAS = 365
+const MAX_INTERVALO_BUSCA_DIAS = 7
 const MAX_USER_AGENT_LENGTH = 120
 const MS_POR_DIA = 24 * 60 * 60 * 1000
 const registrosRateLimit = new Map<string, RegistroRateLimit>()
@@ -185,6 +186,18 @@ export async function GET(request: NextRequest) {
   const inicioEfetivo = dataInicio || data!
   const fimEfetivo = dataFim || inicioEfetivo
 
+  const inicioUtc = Date.parse(`${inicioEfetivo}T00:00:00Z`)
+  const fimUtc = Date.parse(`${fimEfetivo}T00:00:00Z`)
+  const diasNoIntervalo = Number.isFinite(inicioUtc) && Number.isFinite(fimUtc)
+    ? Math.floor((fimUtc - inicioUtc) / MS_POR_DIA) + 1
+    : 0
+  if (diasNoIntervalo > MAX_INTERVALO_BUSCA_DIAS) {
+    return NextResponse.json(
+      { error: `O intervalo máximo é de ${MAX_INTERVALO_BUSCA_DIAS} dias por consulta.` },
+      { status: 400 }
+    )
+  }
+
   if (!validarDataBusca(inicioEfetivo) || !validarDataBusca(fimEfetivo)) {
     return NextResponse.json(
       { error: "Data inválida. Use o formato YYYY-MM-DD e uma data entre hoje e 1 ano no futuro." },
@@ -214,7 +227,7 @@ export async function GET(request: NextRequest) {
       dataInicio: inicioEfetivo,
       dataFim: fimEfetivo,
       idJovem,
-      maxConcorrencia: 3,
+      maxConcorrencia: 1,
     })
 
     const passagensFormatadas = resultadoIntervalo.todasViagens.map((item) =>
