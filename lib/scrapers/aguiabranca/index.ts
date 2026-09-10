@@ -1,1 +1,3 @@
-export { scrapeAguiaBranca } from "./client"
+export { scrapeAguiaBranca, consultarAguiaBranca } from "./client"
+export * from "./client"
+

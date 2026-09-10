@@ -2,13 +2,13 @@ import { ResultItem, ScraperResult } from "../types"
 import { fetchWithRetry } from "../../http-client"
 
 function normalizarSlugAguia(cidade: string, uf: string): string {
-  const nomeLimpo = cidade
+  const nomeLimpo = (cidade || "")
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, "-")
     .replace(/[^a-z0-9-]/g, "")
-  const ufLimpa = uf.toLowerCase().trim()
+  const ufLimpa = (uf || "").toLowerCase().trim()
   return `${nomeLimpo}-${ufLimpa}`
 }
 
@@ -102,11 +102,24 @@ export async function scrapeAguiaBranca(
       const saidaCompleta = card.match(/class="[^"]*saida"[^>]*>([^<]+)</)?.[1]?.trim()
       const chegadaCompleta = card.match(/class="[^"]*chegada"[^>]*>([^<]+)</)?.[1]?.trim()
       const classe = card.match(/class="[^"]*classe"[^>]*>([^<]+)</)?.[1]?.trim() || "Convencional"
-      const empresa = card.match(/class="[^"]*empresa"[^>]*>([^<]+)</)?.[1]?.trim() || "Águia Branca"
+      let empresa = card.match(/class="[^"]*empresa"[^>]*>([^<]+)</)?.[1]?.trim() || "Águia Branca"
+      if (/aguia\s*branca/i.test(empresa)) {
+        empresa = "Águia Branca"
+      }
 
       const horarioPartida = saidaCompleta ? saidaCompleta.slice(-5) : undefined
       const horarioChegada = chegadaCompleta ? chegadaCompleta.slice(-5) : undefined
       const duracao = calcularDuracao(saidaCompleta, chegadaCompleta)
+
+      // Extração de poltronas livres disponíveis
+      const assentosLivresMatch = card.match(/class="[^"]*assentos-livres"[^>]*>([^<]+)</)
+      let poltronasLivres: number | undefined = undefined
+      if (assentosLivresMatch) {
+        const parsedAssentos = parseInt(assentosLivresMatch[1].trim(), 10)
+        if (!isNaN(parsedAssentos)) {
+          poltronasLivres = parsedAssentos
+        }
+      }
 
       let valorNumerico: number | undefined = undefined
       let valorFormatado: string | undefined = undefined
@@ -146,7 +159,7 @@ export async function scrapeAguiaBranca(
         classe,
         tipoGratuidade: idJovem ? "id_jovem_100" : "nenhuma",
         vagasIdJovem: idJovem ? 2 : 0,
-        poltronasLivres: undefined,
+        poltronasLivres,
         origem: `${origem} - ${origemUF}`,
         destino: `${destino} - ${destinoUF}`,
         data: dataIso,
@@ -214,3 +227,6 @@ export async function scrapeAguiaBranca(
     }
   }
 }
+
+export const consultarAguiaBranca = scrapeAguiaBranca
+
