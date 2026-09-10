@@ -34,7 +34,10 @@ export default function Home() {
   const [idJovem, setIdJovem] = useState(false)
   const [provedoresSelecionados, setProvedoresSelecionados] = useState<ProvedorBusca[]>([
     "ClickBus",
+    "AguiaBranca",
+    "Embarca",
     "Guanabara",
+    "Gontijo",
     "Buser",
   ])
   const [carregando, setCarregando] = useState(false)

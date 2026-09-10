@@ -72,7 +72,7 @@ Varredura de linhas convencionais da Gontijo e UTIL com links prontos para o por
 - [x] **Busca por Intervalo de Datas:** Compare até 30 dias contínuos com apenas 1 clique usando atalhos rápidos (`1 dia`, `+3 dias`, `+5 dias`, `+7 dias` e `Fim de Semana`).
 - [x] **Modo Especialista ID Jovem:** Filtro dedicado para gratuidades de 100% (`R$ 0,00`) e descontos de 50% conforme a Lei nº 12.852.
 - [x] **Desbloqueio de API Direta de Gratuidade:** Conexão nativa em milissegundos aos endpoints oficiais do Grupo Guanabara (`passengers=12:1` para 100% grátis e `passengers=13:1` para 50%).
-- [x] **5 Provedores & Centenas de Viações:** ClickBus, Buser, Guanabara/UTIL, Gontijo e Embarca.ai.
+- [x] **6 Provedores & Centenas de Viações:** ClickBus, Águia Branca, Embarca.ai, Guanabara/UTIL, Gontijo e Buser.
 - [x] **Régua Interativa de Datas:** Navegue pelos dias pesquisados, filtre visualmente cada data e veja a quantidade de opções instantaneamente.
 - [x] **Filtros e Ordenação Inteligente:** Filtre por turno (Manhã, Tarde, Noite), operadora e ordene por menor preço, horário de saída ou menor duração.
 - [x] **Guia Oficial de Emissão Interativo:** Modal explicativo com as regras da ANTT, prazos de reserva e link direto para emitir a Carteira ID Jovem digital no Gov.br.
@@ -84,10 +84,11 @@ Varredura de linhas convencionais da Gontijo e UTIL com links prontos para o por
 
 | Provedor | Cobertura / Viações | Suporte a ID Jovem | Tipo de Integração |
 | :--- | :--- | :---: | :---: |
+| **Águia Branca** | RJ, ES, MG, BA, SP (Rotas litorâneas e interestaduais) | 🟢 **100% e 50% Online** | SSR Direto (`freeTicketType=5/25`) |
+| **Embarca.ai** | Sul, Sudeste e Nordeste (Águia Branca, Itapemirim, Garcia, Brasil Sul) | 🟢 **Convencionais / Benefício** | Server Components Streaming (`initialTrips`) |
 | **Guanabara / UTIL** | Expresso Guanabara, UTIL, Real Expresso, Sampaio | 🟢 **100% e 50% Online** | API REST Direta (`passengers=12:1`) |
 | **Gontijo** | Rotas MG, SP, RJ, BA, Nordeste e Centro-Oeste | 🏛️ **100% Guichê / JVVN** | Linhas Oficiais + Portal JVVN |
-| **Embarca.ai** | Sul e Sudeste (Garcia, Brasil Sul, Santo Anjo, Princesa) | 🟢 **Convencionais / Benefício** | API REST e Catálogo Integrado |
-| **ClickBus** | Mais de 200 viações (Cometa, 1001, Águia Branca, Catarinense) | 🏛️ **Linhas Convencionais** | BFF Scraper + Links Parametrizados |
+| **ClickBus** | Mais de 200 viações (Cometa, 1001, Catarinense) | 🏛️ **Linhas Convencionais** | BFF Scraper + Links Parametrizados |
 | **Buser** | Fretamento colaborativo e trechos expressos | ❌ *Fretamento privado* | Scraper + Consulta Comercial |
 
 ---

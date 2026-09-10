@@ -27,10 +27,11 @@ Teste consolidado local em 11/09/2026:
 | Provedor | Resultado observado | Integração atual | Próxima ação |
 | --- | --- | --- | --- |
 | ClickBus | Parser atualizado para o BFF v6 (`trips`/`parts`); 5 viagens Rio-Salvador e 38 Rio-BH em 11/09 | Playwright interceptando BFF | Validar o binário Chromium no deploy; Rio-SP retornou sem oferta nessa data |
+| Águia Branca | 10 viagens comerciais Rio-Salvador em 11/09; suporte nativo a `freeTicketType=5` (100%) e `25` (50%) | Parser SSR de cartões HTML com `data-price` e `/gratuidade` | Monitorar estabilidade de seletores em atualizações do portal |
+| Embarca.ai | 5 viagens Rio-Salvador em 11/09 (Águia Branca e Itapemirim) com preços, assentos e status de benefício | Parser SSR de Next.js Server Components (`initialTrips`) | Expandir catálogo de apelidos e slugs para cidades menores |
 | Buser | 0 horários em 10/09; 1 horário em 11/09 por R$ 295,98 | Fallback HTML SSR e Playwright | Preferir endpoint estruturado se a página mudar |
 | Guanabara/UTIL | API respondeu HTTP 500 em consulta direta | API REST | Investigar contrato, sessão e parâmetros aceitos |
-| Gontijo | Não há consulta automática real implementada | Portal oficial sem scraper de disponibilidade | Implementar fluxo oficial antes de exibir horários |
-| Embarca.ai | Não há consulta automática real implementada | Portal oficial sem scraper de disponibilidade | Implementar catálogo/API real antes de exibir horários |
+| Gontijo | Protegido por Turnstile e ações cifradas; redireciona oficialmente para o Portal JVVN e guichês | Mapeamento de malha e links parametrizados JVVN | Manter link parametrizado oficial atualizado |
 
 ## ClickBus
 
@@ -127,33 +128,68 @@ O catálogo `GET /api/cities/available/` responde `200` e contém Rio de Janeiro
 
 Enquanto o endpoint de serviços não for corrigido pelo provedor, o FastTravel deve manter Guanabara como `Erro`, não como `Online` ou `Sem oferta`.
 
-## Gontijo
+## Águia Branca
 
 ### Resultado
 
-O cliente atual não consulta a disponibilidade da Gontijo. Horários fixos que existiam no código foram removidos para evitar resultados inventados. O provedor retorna `sem_cobertura` até que o fluxo oficial seja integrado.
+A integração com a Águia Branca opera em alta velocidade através do endpoint SSR do portal:
+
+```text
+https://www.aguiabranca.com.br/onibus/rio-de-janeiro-rj/salvador-ba?Ida=11-09-2026&adulto=1
+```
+
+E para ID Jovem (gratuidade integral de 100%):
+
+```text
+https://www.aguiabranca.com.br/onibus/rio-de-janeiro-rj/salvador-ba?Ida=11-09-2026&adulto=1&freeTicketType=5
+```
+
+- Parâmetros de gratuidade suportados:
+  - `freeTicketType=5`: Jovem Carente 100% (ID Jovem integral)
+  - `freeTicketType=25`: Jovem Carente 50%
+- Os dados são extraídos dos cartões SSR (`.y_fareResultTravelOption`) via atributos `data-price`, `.saida`, `.chegada`, `.classe` e `.servico`.
+- Em caso de busca comercial Rio ➔ Salvador (11/09/2026), retornou 10 viagens com classes Semi-Leito e Leito.
 
 ### Código relacionado
 
-- Cliente: `lib/scrapers/gontijo/client.ts`
-
-### Risco
-
-A correção adequada é integrar o fluxo oficial da Gontijo ou manter a fonte marcada como indisponível para consulta automática.
+- Cliente: `lib/scrapers/aguiabranca/client.ts`
 
 ## Embarca.ai
 
 ### Resultado
 
-O cliente não consulta disponibilidade real no momento. Dados simulados de rotas Sul/Sudeste foram removidos; a fonte retorna `sem_cobertura` até que o catálogo/API real seja integrado.
+A integração com a Embarca.ai aproveita o streaming de Server Components do Next.js App Router:
+
+```text
+https://www.embarca.ai/passagem-de-onibus/rio-de-janeiro-rj-todos/salvador-ba?departure_at=2026-09-11&round_trip=
+```
+
+- Os dados das viagens são extraídos do payload SSR `initialTrips` diretamente do stream HTML (`self.__next_f.push`).
+- Captura operadoras parceiras (Águia Branca, Itapemirim, Garcia, Brasil Sul, Santo Anjo, etc.), horários, assentos disponíveis, classes e valores.
+- O campo `disable_gratuity: false` identifica viagens que admitem gratuidade por lei.
+- Em teste real Rio ➔ Salvador (11/09/2026), retornou 5 opções estruturadas operadas por Águia Branca e Itapemirim.
 
 ### Código relacionado
 
 - Cliente: `lib/scrapers/embarca/client.ts`
 
-### Próxima investigação
+## Gontijo
 
-Localizar o endpoint/catálogo real do Embarca.ai, validar a cobertura da rota e substituir a lista fixa por resposta da fonte. Até lá, a interface deve deixar claro que a fonte não cobre a rota, em vez de sugerir indisponibilidade geral.
+### Resultado
+
+O portal de vendas da Gontijo utiliza ações cifradas em hexadecimal (`usc001PesquisarViagens`) e proteção de bot Cloudflare Turnstile com captcha interativo.
+
+Para garantir transparência ao usuário e direcionamento legal correto para o ID Jovem:
+- O FastTravel valida a cobertura da malha estadual atendida pela Gontijo (MG, SP, RJ, BA, ES, GO, DF, etc.).
+- Gera links pré-preenchidos oficiais para o Portal de Gratuidade JVVN (`tipoVenda=JVVN`):
+  ```text
+  https://www.gontijo.com.br/gratuidade?trajeto=IDA&tipoVenda=JVVN&cidadeOrigem=Rio%20de%20Janeiro&cidadeDestino=Salvador&dataIda=11%2F09%2F2026
+  ```
+- Orienta o usuário sobre a emissão pelo portal oficial ou guichês rodoviários.
+
+### Código relacionado
+
+- Cliente: `lib/scrapers/gontijo/client.ts`
 
 ## Interpretação dos resultados
 

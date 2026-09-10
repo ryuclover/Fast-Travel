@@ -79,8 +79,11 @@ export function SearchForm({
   const dataFimHiddenRef = useRef<HTMLInputElement>(null)
   const provedoresDisponiveis: Array<{ id: ProvedorBusca; nome: string }> = [
     { id: "ClickBus", nome: "ClickBus" },
-    { id: "Buser", nome: "Buser" },
+    { id: "AguiaBranca", nome: "Águia Branca" },
+    { id: "Embarca", nome: "Embarca.ai" },
     { id: "Guanabara", nome: "Guanabara / UTIL" },
+    { id: "Gontijo", nome: "Gontijo" },
+    { id: "Buser", nome: "Buser" },
   ]
 
   const alternarProvedor = (provedor: ProvedorBusca) => {
