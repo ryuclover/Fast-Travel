@@ -59,7 +59,7 @@ export class BuserSession {
   async init() {
     if (!this.browser) {
       try {
-        const isServerless = Boolean(process.env.VERCEL)
+        const isServerless = process.platform === "linux"
         const { chromium: playwrightChromium } = isServerless
           ? await import("playwright-core")
           : await import("playwright")

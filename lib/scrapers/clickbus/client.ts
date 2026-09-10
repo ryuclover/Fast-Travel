@@ -71,7 +71,7 @@ export class ClickBusSession {
   async init() {
     if (!this.browser) {
       try {
-        const isServerless = Boolean(process.env.VERCEL)
+        const isServerless = process.platform === "linux"
         const { chromium: playwrightChromium } = isServerless
           ? await import("playwright-core")
           : await import("playwright")
@@ -102,7 +102,12 @@ export class ClickBusSession {
           return route.continue()
         })
       } catch (err) {
-        console.error("[ClickBus] Não foi possível iniciar o navegador de coleta:", err)
+        console.error("[ClickBus] Não foi possível iniciar o navegador de coleta:", {
+          node: process.version,
+          platform: process.platform,
+          vercel: process.env.VERCEL,
+          error: err instanceof Error ? err.message : String(err),
+        })
         this.browser = null
         this.context = null
       }
