@@ -44,7 +44,7 @@ async function testEncaminhamentoDireto() {
         p.tipoGratuidade === "id_jovem_100" ||
         p.valor === "R$ 0,00" ||
         p.valorNumerico === 0 ||
-        (p.vagasIdJovem100 != null && p.vagasIdJovem100 > 0)
+        (p.vagasIdJovem != null && p.vagasIdJovem > 0)
     )
 
     const passagens50 = res.resultados.filter((p) => p.tipoGratuidade === "id_jovem_50")
