@@ -92,6 +92,7 @@ export async function GET(
   }
 
   const idJovem = searchParams.get("idJovem") === "true"
+  const apenas100 = searchParams.get("apenas100") === "true"
 
   try {
     const resultadoIntervalo = await compararPrecosIntervalo({
@@ -102,6 +103,7 @@ export async function GET(
       dataInicio: inicioEfetivo,
       dataFim: fimEfetivo,
       idJovem,
+      apenas100,
       provedores: [provedor],
       maxConcorrencia: 2,
       timeoutMs: 9000,

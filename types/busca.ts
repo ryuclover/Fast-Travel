@@ -77,5 +77,6 @@ export interface FiltrosBusca {
   empresa: string
   turno: TipoTurno
   apenasIdJovem: boolean
+  apenas100?: boolean
   dataFoco?: string
 }

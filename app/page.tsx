@@ -32,6 +32,7 @@ export default function Home() {
     formatarDataParaExibicao(obterDataHojeLocal())
   )
   const [idJovem, setIdJovem] = useState(false)
+  const [apenas100, setApenas100] = useState(false)
   const [provedoresSelecionados, setProvedoresSelecionados] = useState<ProvedorBusca[]>([
     "ClickBus",
     "AguiaBranca",
@@ -123,6 +124,7 @@ export default function Home() {
         dataInicio,
         dataFim,
         idJovem: idJovem ? "true" : "false",
+        apenas100: apenas100 ? "true" : "false",
       })
 
       try {
@@ -133,10 +135,10 @@ export default function Home() {
         const dados = await response.json()
 
         const novasNaData = idJovem
-          ? filtrarPassagensIdJovem(dados.passagensNaData || [])
+          ? filtrarPassagensIdJovem(dados.passagensNaData || [], apenas100)
           : dados.passagensNaData || []
         const novasProximas = idJovem
-          ? filtrarPassagensIdJovem(dados.passagensProximas || [])
+          ? filtrarPassagensIdJovem(dados.passagensProximas || [], apenas100)
           : dados.passagensProximas || []
 
         passagensNaDataAcumuladas = [...passagensNaDataAcumuladas, ...novasNaData]
@@ -312,6 +314,8 @@ export default function Home() {
               setDataFimDisplay={setDataFimDisplay}
               idJovem={idJovem}
               setIdJovem={setIdJovem}
+              apenas100={apenas100}
+              setApenas100={setApenas100}
               provedoresSelecionados={provedoresSelecionados}
               setProvedoresSelecionados={setProvedoresSelecionados}
               carregando={carregando}
@@ -322,7 +326,12 @@ export default function Home() {
 
             {/* Resultados da Busca */}
             {resultado && (
-              <ResultsContainer resultado={resultado} idJovem={idJovem} />
+              <ResultsContainer
+                resultado={resultado}
+                idJovem={idJovem}
+                apenas100={apenas100}
+                setApenas100={setApenas100}
+              />
             )}
           </div>
         </section>

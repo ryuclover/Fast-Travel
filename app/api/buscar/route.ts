@@ -162,7 +162,10 @@ function converterItemParaPassagem(item: ResultItem, siteFallback = "FastTravel"
         ? "online"
         : "guiche",
     vagasIdJovem: item.vagasIdJovem ?? 0,
-    vagasIdJovem100: item.tipoGratuidade === "id_jovem_100" ? item.vagasIdJovem ?? 2 : 0,
+    vagasIdJovem100:
+      item.tipoGratuidade === "id_jovem_100" || item.valorNumerico === 0 || item.valor === "R$ 0,00"
+        ? item.vagasIdJovem ?? 2
+        : 0,
     linkCompra: item.linkCompra || "",
   }
 }
@@ -233,6 +236,7 @@ export async function GET(request: NextRequest) {
   }
 
   const idJovem = searchParams.get("idJovem") === "true"
+  const apenas100 = searchParams.get("apenas100") === "true"
   const provedoresParam = searchParams.get("provedores")
   const provedoresSelecionados = provedoresParam
     ? provedoresParam.split(",").filter((provedor) => PROVEDORES_DISPONIVEIS.has(provedor))
@@ -251,6 +255,7 @@ export async function GET(request: NextRequest) {
       dataInicio: inicioEfetivo,
       dataFim: fimEfetivo,
       idJovem,
+      apenas100,
       provedores:
         provedoresSelecionados.length > 0
           ? (provedoresSelecionados as Array<

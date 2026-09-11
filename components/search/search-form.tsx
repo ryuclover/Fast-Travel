@@ -40,6 +40,8 @@ interface SearchFormProps {
   setDataFimDisplay: (valor: string) => void
   idJovem: boolean
   setIdJovem: (valor: boolean) => void
+  apenas100: boolean
+  setApenas100: (valor: boolean) => void
   provedoresSelecionados: ProvedorBusca[]
   setProvedoresSelecionados: (valor: ProvedorBusca[]) => void
   carregando: boolean
@@ -70,6 +72,8 @@ export function SearchForm({
   setDataFimDisplay,
   idJovem,
   setIdJovem,
+  apenas100,
+  setApenas100,
   provedoresSelecionados,
   setProvedoresSelecionados,
   carregando,
@@ -303,58 +307,104 @@ export function SearchForm({
           </div>
 
           {/* Filtro ID Jovem Toggle */}
-          <div className="p-3.5 rounded-xl border border-border/70 bg-secondary/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div
-                className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-                  idJovem
-                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                    : "bg-muted/50 text-muted-foreground"
-                }`}
-              >
-                <Ticket className="w-4 h-4" />
+          <div className="p-3.5 rounded-xl border border-border/70 bg-secondary/40 flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                    idJovem
+                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                      : "bg-muted/50 text-muted-foreground"
+                  }`}
+                >
+                  <Ticket className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    Modalidade de Passagem
+                    {idJovem && (
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
+                        {apenas100 ? "ID Jovem (100% Grátis)" : "ID Jovem Ativo"}
+                      </span>
+                    )}
+                  </span>
+                  <p className="text-xs text-muted-foreground">
+                    {idJovem
+                      ? apenas100
+                        ? "Filtrando exclusivamente gratuidades integrais de 100% (tarifa R$ 0,00)"
+                        : "Filtrando gratuidades estatutárias de 100% e vagas de 50% de desconto"
+                      : "Pesquisando todas as tarifas comerciais disponíveis nos provedores"}
+                  </p>
+                </div>
               </div>
-              <div>
-                <span className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  Modalidade de Passagem
-                  {idJovem && (
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
-                      ID Jovem Ativo
-                    </span>
-                  )}
-                </span>
-                <p className="text-xs text-muted-foreground">
-                  {idJovem
-                    ? "Filtrando apenas gratuidades estatutárias de 100% ou 50% de desconto"
-                    : "Pesquisando todas as tarifas comerciais disponíveis nos 4 provedores"}
-                </p>
+
+              <div className="flex items-center gap-1 bg-background/60 p-1 rounded-lg border border-border/70 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setIdJovem(false)}
+                  className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                    !idJovem
+                      ? "bg-secondary text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Geral (Todas)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIdJovem(true)}
+                  className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                    idJovem
+                      ? "bg-emerald-500 text-slate-950 shadow-md font-bold"
+                      : "text-muted-foreground hover:text-emerald-400"
+                  }`}
+                >
+                  Apenas ID Jovem
+                </button>
               </div>
             </div>
 
-            <div className="flex items-center gap-1 bg-background/60 p-1 rounded-lg border border-border/70 w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={() => setIdJovem(false)}
-                className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                  !idJovem
-                    ? "bg-secondary text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Geral (Todas)
-              </button>
-              <button
-                type="button"
-                onClick={() => setIdJovem(true)}
-                className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                  idJovem
-                    ? "bg-emerald-500 text-slate-950 shadow-md font-bold"
-                    : "text-muted-foreground hover:text-emerald-400"
-                }`}
-              >
-                Apenas ID Jovem
-              </button>
-            </div>
+            {/* Sub-opção quando ID Jovem está selecionado: Apenas 100% vs 100% e 50% */}
+            {idJovem && (
+              <div className="pt-2.5 border-t border-border/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <div>
+                    <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                      Desconto ID Jovem Desejado
+                    </span>
+                    <p className="text-[11px] text-muted-foreground">
+                      Escolha se deseja ver todos os descontos ou apenas 100% gratuito
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 bg-background/70 p-1 rounded-lg border border-border/70 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setApenas100(false)}
+                    className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      !apenas100
+                        ? "bg-secondary text-foreground font-semibold shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    100% e 50%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setApenas100(true)}
+                    className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      apenas100
+                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold shadow-sm"
+                        : "text-muted-foreground hover:text-emerald-400"
+                    }`}
+                  >
+                    ✨ Apenas 100% Grátis
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="p-3.5 rounded-xl border border-border/70 bg-secondary/40 space-y-2.5">

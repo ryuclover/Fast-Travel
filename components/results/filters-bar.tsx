@@ -13,6 +13,9 @@ interface FiltersBarProps {
   setTurno: (turno: TipoTurno) => void
   totalExibido: number
   totalGeral: number
+  idJovem?: boolean
+  apenas100?: boolean
+  setApenas100?: (apenas100: boolean) => void
 }
 
 export function FiltersBar({
@@ -25,12 +28,15 @@ export function FiltersBar({
   setTurno,
   totalExibido,
   totalGeral,
+  idJovem,
+  apenas100,
+  setApenas100,
 }: FiltersBarProps) {
   return (
     <div className="p-4 rounded-2xl bg-card/80 border border-border/70 backdrop-blur-md space-y-4">
-      {/* Linha 1: Contagem e Ordenação */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+      {/* Linha 1: Contagem, Ordenação e Filtro ID Jovem se ativo */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           <Filter className="w-4 h-4 text-primary" />
           <span className="font-semibold text-sm text-foreground">
             Filtros & Ordenação
@@ -38,6 +44,33 @@ export function FiltersBar({
           <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border/60">
             {totalExibido} de {totalGeral} opções
           </span>
+
+          {idJovem && setApenas100 && (
+            <div className="flex items-center gap-1 bg-background/60 p-0.5 rounded-lg border border-border/70 text-xs ml-2">
+              <button
+                type="button"
+                onClick={() => setApenas100(false)}
+                className={`px-2.5 py-1 rounded-md transition-all text-xs ${
+                  !apenas100
+                    ? "bg-secondary text-foreground font-semibold shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                100% e 50%
+              </button>
+              <button
+                type="button"
+                onClick={() => setApenas100(true)}
+                className={`px-2.5 py-1 rounded-md transition-all text-xs flex items-center gap-1 ${
+                  apenas100
+                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold shadow-sm"
+                    : "text-muted-foreground hover:text-emerald-400"
+                }`}
+              >
+                ✨ Apenas 100%
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Seletor de Ordenação */}

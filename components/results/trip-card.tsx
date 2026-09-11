@@ -10,6 +10,7 @@ import {
   Armchair,
   CheckCircle2,
   Building,
+  Zap,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Passagem } from "@/types/busca"
@@ -66,9 +67,10 @@ export function TripCard({ passagem, destaque }: TripCardProps) {
     >
       {/* Barra superior de destaque se for a melhor oferta */}
       {destaque && (
-        <div className="bg-primary/20 border-b border-primary/30 px-4 py-1 flex items-center justify-between text-xs font-semibold text-primary">
+        <div className="bg-emerald-500/20 border-b border-emerald-500/30 px-4 py-1.5 flex items-center justify-between text-xs font-bold text-emerald-300">
           <span className="flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5" /> Menor preço encontrado na data
+            <Sparkles className="w-3.5 h-3.5 animate-pulse text-emerald-400" />
+            {is100 ? "🏆 Melhor Opção ID Jovem (100% Grátis)" : "🏆 Melhor Oferta Selecionada"}
           </span>
           <span>{diaSemana}, {dataFormatada}</span>
         </div>
@@ -209,8 +211,12 @@ export function TripCard({ passagem, destaque }: TripCardProps) {
             asChild
             size="sm"
             className={`h-10 px-4 rounded-xl font-bold transition-all hover:scale-102 ${
-              is100
+              destaque
+                ? "bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500 hover:from-emerald-300 hover:to-teal-300 text-slate-950 shadow-lg shadow-emerald-500/25 border border-emerald-300/60"
+                : is100
                 ? "bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md shadow-emerald-500/20"
+                : is50
+                ? "bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-500/20"
                 : "bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-primary/20"
             }`}
           >
@@ -220,16 +226,28 @@ export function TripCard({ passagem, destaque }: TripCardProps) {
               rel="noopener noreferrer"
               className="flex items-center gap-1.5"
             >
-              <span>
-                {is100
-                  ? isReservaOnline
-                    ? "Garantir 100% Grátis"
-                    : "Emitir no Guichê"
-                  : is50
-                  ? "Reservar com 50%"
-                  : "Reservar"}
-              </span>
-              <ExternalLink className="w-3.5 h-3.5" />
+              {destaque ? (
+                <>
+                  <Zap className="w-4 h-4 fill-slate-950 text-slate-950" />
+                  <span>Encaminhamento Direto</span>
+                  <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                </>
+              ) : is100 ? (
+                <>
+                  <Zap className="w-3.5 h-3.5 fill-current" />
+                  <span>
+                    {isReservaOnline ? "Encaminhamento Direto" : "Emitir no Guichê"}
+                  </span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </>
+              ) : (
+                <>
+                  <span>
+                    {is50 ? "Reservar com 50%" : "Reservar"}
+                  </span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </>
+              )}
             </a>
           </Button>
         </div>

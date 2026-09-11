@@ -149,7 +149,10 @@ export function converterItemParaPassagem(item: ResultItem, siteFallback = "Fast
         ? "online"
         : "guiche",
     vagasIdJovem: item.vagasIdJovem ?? 0,
-    vagasIdJovem100: item.tipoGratuidade === "id_jovem_100" ? item.vagasIdJovem ?? 2 : 0,
+    vagasIdJovem100:
+      item.tipoGratuidade === "id_jovem_100" || item.valorNumerico === 0 || item.valor === "R$ 0,00"
+        ? item.vagasIdJovem ?? 2
+        : 0,
     linkCompra: item.linkCompra || "",
   }
 }

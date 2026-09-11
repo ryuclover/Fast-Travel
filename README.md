@@ -71,7 +71,7 @@ Varredura de linhas convencionais da Gontijo e UTIL com links prontos para o por
 
 - [x] **Busca por Intervalo de Datas:** Compare até 30 dias contínuos com apenas 1 clique usando atalhos rápidos (`1 dia`, `+3 dias`, `+5 dias`, `+7 dias` e `Fim de Semana`).
 - [x] **Modo Especialista ID Jovem:** Filtro dedicado para gratuidades de 100% (`R$ 0,00`) e descontos de 50% conforme a Lei nº 12.852.
-- [x] **Desbloqueio de API Direta de Gratuidade:** Conexão nativa em milissegundos aos endpoints oficiais do Grupo Guanabara (`passengers=12:1` para 100% grátis e `passengers=13:1` para 50%).
+- [x] **Desbloqueio de API Direta de Gratuidade:** Conexão nativa em milissegundos aos endpoints oficiais do Grupo Guanabara (`passengers=13:1` para ID Jovem 100% grátis e 50%).
 - [x] **6 Provedores & Centenas de Viações:** ClickBus, Águia Branca, Embarca.ai, Guanabara/UTIL, Gontijo e Buser.
 - [x] **Régua Interativa de Datas:** Navegue pelos dias pesquisados, filtre visualmente cada data e veja a quantidade de opções instantaneamente.
 - [x] **Filtros e Ordenação Inteligente:** Filtre por turno (Manhã, Tarde, Noite), operadora e ordene por menor preço, horário de saída ou menor duração.
@@ -86,7 +86,7 @@ Varredura de linhas convencionais da Gontijo e UTIL com links prontos para o por
 | :--- | :--- | :---: | :---: |
 | **Águia Branca** | RJ, ES, MG, BA, SP (Rotas litorâneas e interestaduais) | 🟢 **100% e 50% Online** | SSR Direto (`freeTicketType=5/25`) |
 | **Embarca.ai** | Sul, Sudeste e Nordeste (Águia Branca, Itapemirim, Garcia, Brasil Sul) | 🟢 **Convencionais / Benefício** | Server Components Streaming (`initialTrips`) |
-| **Guanabara / UTIL** | Expresso Guanabara, UTIL, Real Expresso, Sampaio | 🟢 **100% e 50% Online** | API REST Direta (`passengers=12:1`) |
+| **Guanabara / UTIL** | Expresso Guanabara, UTIL, Real Expresso, Sampaio | 🟢 **100% e 50% Online** | API REST Direta (`passengers=13:1`) |
 | **Gontijo** | Rotas MG, SP, RJ, BA, Nordeste e Centro-Oeste | 🏛️ **100% Guichê / JVVN** | Linhas Oficiais + Portal JVVN |
 | **ClickBus** | Mais de 200 viações (Cometa, 1001, Catarinense) | 🏛️ **Linhas Convencionais** | BFF Scraper + Links Parametrizados |
 | **Buser** | Fretamento colaborativo e trechos expressos | ❌ *Fretamento privado* | Scraper + Consulta Comercial |
@@ -181,7 +181,7 @@ Fast-Travel/
 │   └── screenshots/              # Imagens demonstrativas para a documentação
 ├── lib/
 │   ├── scrapers/                 # Módulos especializados por provedor
-│   │   ├── guanabara/            # Conexão REST de alta velocidade (12:1 e 13:1)
+│   │   ├── guanabara/            # Conexão REST de alta velocidade (ID Jovem 13:1)
 │   │   ├── gontijo/              # Mapeamento de linhas e formulário JVVN
 │   │   ├── embarca/              # Conexão com agregador de linhas Sul/Sudeste
 │   │   ├── clickbus/             # Interceptação de rotas BFF

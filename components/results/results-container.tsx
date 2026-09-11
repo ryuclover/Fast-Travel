@@ -27,9 +27,16 @@ import { CheckCircle2, CircleAlert, CircleOff, Radio, Loader2 } from "lucide-rea
 interface ResultsContainerProps {
   resultado: ResultadoBusca
   idJovem: boolean
+  apenas100?: boolean
+  setApenas100?: (apenas100: boolean) => void
 }
 
-export function ResultsContainer({ resultado, idJovem }: ResultsContainerProps) {
+export function ResultsContainer({
+  resultado,
+  idJovem,
+  apenas100 = false,
+  setApenas100,
+}: ResultsContainerProps) {
   const [dataFoco, setDataFoco] = useState<string | undefined>(undefined)
   const [ordenacao, setOrdenacao] = useState<TipoOrdenacao>("valor")
   const [empresaSelecionada, setEmpresaSelecionada] = useState<string>("todas")
@@ -58,6 +65,52 @@ export function ResultsContainer({ resultado, idJovem }: ResultsContainerProps) 
     return Array.from(setEmp).sort()
   }, [todasPassagens])
 
+  // Identifica a melhor passagem do período para o Encaminhamento Direto
+  const melhorPassagem = useMemo(() => {
+    if (!todasPassagens || todasPassagens.length === 0) return null
+
+    // Se a busca for ID Jovem:
+    if (idJovem) {
+      // 1. Prioridade máxima: 100% gratuita
+      const passagens100 = todasPassagens.filter(
+        (p) =>
+          p.tipoGratuidade === "id_jovem_100" ||
+          p.valor === "R$ 0,00" ||
+          p.valorNumerico === 0 ||
+          (p.vagasIdJovem100 != null && p.vagasIdJovem100 > 0)
+      )
+      if (passagens100.length > 0) {
+        return passagens100.slice().sort((a, b) => {
+          const valA = a.valorNumerico ?? parseValorPassagem(a.valor) ?? 0
+          const valB = b.valorNumerico ?? parseValorPassagem(b.valor) ?? 0
+          if (valA !== valB) return valA - valB
+          return a.data.localeCompare(b.data)
+        })[0]
+      }
+
+      // 2. Segunda prioridade: 50% de desconto
+      if (!apenas100) {
+        const passagens50 = todasPassagens.filter((p) => p.tipoGratuidade === "id_jovem_50")
+        if (passagens50.length > 0) {
+          return passagens50.slice().sort((a, b) => {
+            const valA = a.valorNumerico ?? parseValorPassagem(a.valor) ?? 999999
+            const valB = b.valorNumerico ?? parseValorPassagem(b.valor) ?? 999999
+            if (valA !== valB) return valA - valB
+            return a.data.localeCompare(b.data)
+          })[0]
+        }
+      }
+    }
+
+    // Caso geral ou fallback: menor valor disponível
+    return todasPassagens.slice().sort((a, b) => {
+      const valA = a.valorNumerico ?? parseValorPassagem(a.valor) ?? 999999
+      const valB = b.valorNumerico ?? parseValorPassagem(b.valor) ?? 999999
+      if (valA !== valB) return valA - valB
+      return a.data.localeCompare(b.data)
+    })[0]
+  }, [todasPassagens, idJovem, apenas100])
+
   // Aplicação dos filtros dinâmicos
   const passagensFiltradas = useMemo(() => {
     let lista = todasPassagens
@@ -81,6 +134,17 @@ export function ResultsContainer({ resultado, idJovem }: ResultsContainerProps) 
       lista = lista.filter((p) => extrairTurno(p.partida) === turno)
     }
 
+    // Filtro ID Jovem Apenas 100%
+    if (idJovem && apenas100) {
+      lista = lista.filter(
+        (p) =>
+          p.tipoGratuidade === "id_jovem_100" ||
+          p.valor === "R$ 0,00" ||
+          p.valorNumerico === 0 ||
+          (p.vagasIdJovem100 != null && p.vagasIdJovem100 > 0)
+      )
+    }
+
     // Ordenação
     return lista.slice().sort((a, b) => {
       if (ordenacao === "valor") {
@@ -96,7 +160,7 @@ export function ResultsContainer({ resultado, idJovem }: ResultsContainerProps) 
       }
       return a.data.localeCompare(b.data)
     })
-  }, [todasPassagens, dataFoco, empresaSelecionada, turno, ordenacao])
+  }, [todasPassagens, dataFoco, empresaSelecionada, turno, ordenacao, idJovem, apenas100])
 
   // Agrupamento por data para exibição organizada
   const blocosPorData: BlocoData[] = useMemo(() => {
@@ -207,12 +271,13 @@ export function ResultsContainer({ resultado, idJovem }: ResultsContainerProps) 
       )}
 
       {/* Banner da Melhor Oferta do Período */}
-      {resultado.melhorDataPeriodo && (
+      {(resultado.melhorDataPeriodo || melhorPassagem) && (
         <BestDealBanner
           melhorData={resultado.melhorDataPeriodo}
           menorPreco={resultado.menorPrecoPeriodo}
           empresaCampeao={resultado.empresaCampeaoPeriodo}
           isIdJovem={idJovem}
+          melhorPassagem={melhorPassagem}
           onSelecionarData={(data) => setDataFoco(data)}
         />
       )}
@@ -239,6 +304,9 @@ export function ResultsContainer({ resultado, idJovem }: ResultsContainerProps) 
           setTurno={setTurno}
           totalExibido={passagensFiltradas.length}
           totalGeral={todasPassagens.length}
+          idJovem={idJovem}
+          apenas100={apenas100}
+          setApenas100={setApenas100}
         />
       )}
 
@@ -271,11 +339,11 @@ export function ResultsContainer({ resultado, idJovem }: ResultsContainerProps) 
 
                 {/* Grade de Cards de Passagem */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {bloco.passagens.map((passagem, idx) => (
+                  {bloco.passagens.map((passagem) => (
                     <TripCard
                       key={passagem.id}
                       passagem={passagem}
-                      destaque={isMelhorData && idx === 0}
+                      destaque={passagem.id === melhorPassagem?.id}
                     />
                   ))}
                 </div>

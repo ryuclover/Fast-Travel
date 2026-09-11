@@ -215,13 +215,32 @@ export function passagemIgnoradaNoIdJovem(_empresa: string): boolean {
   return false
 }
 
-export function filtrarPassagensIdJovem<T extends { empresa: string; vagasIdJovem: number; vagasIdJovem100?: number }>(
-  passagens: T[]
-): T[] {
-  return passagens.filter(
-    (p) =>
-      ((p.vagasIdJovem100 != null && p.vagasIdJovem100 > 0) || (p.vagasIdJovem != null && p.vagasIdJovem > 0)) &&
-      !passagemIgnoradaNoIdJovem(p.empresa)
-  )
+export function filtrarPassagensIdJovem<
+  T extends {
+    empresa: string
+    vagasIdJovem: number
+    vagasIdJovem100?: number
+    tipoGratuidade?: string
+    valorNumerico?: number
+    valor?: string
+  }
+>(passagens: T[], apenas100 = false): T[] {
+  return passagens.filter((p) => {
+    const is100 =
+      p.tipoGratuidade === "id_jovem_100" ||
+      (p.vagasIdJovem100 != null && p.vagasIdJovem100 > 0) ||
+      p.valorNumerico === 0 ||
+      p.valor === "R$ 0,00"
+
+    if (apenas100) {
+      return is100 && !passagemIgnoradaNoIdJovem(p.empresa)
+    }
+
+    const is50 =
+      p.tipoGratuidade === "id_jovem_50" ||
+      (p.vagasIdJovem != null && p.vagasIdJovem > 0)
+
+    return (is100 || is50) && !passagemIgnoradaNoIdJovem(p.empresa)
+  })
 }
 

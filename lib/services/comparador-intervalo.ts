@@ -15,6 +15,7 @@ export interface CompararIntervaloParams {
   dataInicio: string // YYYY-MM-DD
   dataFim: string // YYYY-MM-DD
   idJovem?: boolean
+  apenas100?: boolean
   provedores?: ProvedorId[]
   maxConcorrencia?: number
   timeoutMs?: number
@@ -81,6 +82,7 @@ export async function compararPrecosIntervalo(
     dataInicio,
     dataFim,
     idJovem = false,
+    apenas100 = false,
     provedores = ["ClickBus", "Gontijo", "Guanabara", "Buser", "Embarca", "AguiaBranca", "Mobifacil"],
     maxConcorrencia = 1,
     timeoutMs = TIMEOUT_PROVEDOR_MS,
@@ -117,7 +119,7 @@ export async function compararPrecosIntervalo(
       const resultadosProvedores: ScraperResult[] = await Promise.all(
         tarefasProvedores.map((tarefa) => tarefa())
       )
-      const viagensDoDia: ResultItem[] = []
+      let viagensDoDia: ResultItem[] = []
 
       for (const res of resultadosProvedores) {
         if (res.disponivel && res.resultados.length > 0) {
@@ -166,6 +168,15 @@ export async function compararPrecosIntervalo(
         }
       }
 
+      if (idJovem && apenas100) {
+        viagensDoDia = viagensDoDia.filter(
+          (v) =>
+            v.tipoGratuidade === "id_jovem_100" ||
+            v.valorNumerico === 0 ||
+            v.valor === "R$ 0,00"
+        )
+      }
+
       return { dataIso, viagensDoDia }
     }
   )
@@ -184,7 +195,12 @@ export async function compararPrecosIntervalo(
     let temIdJovem50 = false
 
     for (const v of viagensDoDia) {
-      if (v.tipoGratuidade === "id_jovem_100" || (v.vagasIdJovem && v.vagasIdJovem > 0)) {
+      const is100 =
+        v.tipoGratuidade === "id_jovem_100" ||
+        v.valorNumerico === 0 ||
+        v.valor === "R$ 0,00"
+
+      if (is100) {
         temIdJovem100 = true
       }
       if (v.tipoGratuidade === "id_jovem_50") {

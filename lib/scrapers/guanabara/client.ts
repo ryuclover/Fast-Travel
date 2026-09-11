@@ -61,7 +61,7 @@ export async function fetchGuanabaraDirect(
   const destinoApi = formatarCidadeGuanabaraApi(destino, destinoUF)
 
   const siteUrlBase = `https://viajeguanabara.com.br/onibus/${origemSlug}-${origemUF.toLowerCase()}-todos/${destinoSlug}-${destinoUF.toLowerCase()}-todos/?departure_date=${data}`
-  const siteUrl = `${siteUrlBase}&passengers=${idJovem ? "12:1" : "1"}`
+  const siteUrl = `${siteUrlBase}&passengers=${idJovem ? "13:1" : "1"}`
 
   const headers = {
     Accept: "application/json, text/plain, */*",
@@ -75,108 +75,81 @@ export async function fetchGuanabaraDirect(
     let totalVagasIdJovem = 0
 
     if (idJovem) {
-      // Consulta simultaneamente:
-      // passengers=12:1 -> 100% de gratuidade integral (Tarifa R$ 0,00)
-      // passengers=13:1 -> 50% de desconto estatutário ID Jovem
-      const [resp100, resp50] = await Promise.all([
-        fetchWithRetry(
-          `https://viajeguanabara.com.br/api/search/services/?departure_date=${data}&destination=${encodeURIComponent(
-            destinoApi
-          )}&origin=${encodeURIComponent(origemApi)}&passengers=12:1`,
-          { headers, timeoutMs: 5000 } as any,
-          1
-        ).catch(() => null),
-        fetchWithRetry(
-          `https://viajeguanabara.com.br/api/search/services/?departure_date=${data}&destination=${encodeURIComponent(
-            destinoApi
-          )}&origin=${encodeURIComponent(origemApi)}&passengers=13:1`,
-          { headers, timeoutMs: 5000 } as any,
-          1
-        ).catch(() => null),
-      ])
+      // Consulta oficial ID Jovem Guanabara (Beneficiários ID Jovem = passenger_classification_id: 13)
+      // O endpoint passengers=13:1 retorna tanto vagas com 100% de gratuidade (fare = 0)
+      // quanto vagas com 50% de desconto estatutário (fare > 0).
+      const resp = await fetchWithRetry(
+        `https://viajeguanabara.com.br/api/search/services/?departure_date=${data}&destination=${encodeURIComponent(
+          destinoApi
+        )}&origin=${encodeURIComponent(origemApi)}&passengers=13:1`,
+        { headers, timeoutMs: 6000 } as any,
+        1
+      ).catch(() => null)
 
-      const parseTrips = async (resp: Response | null, is100: boolean) => {
-        if (!resp || !resp.ok) return []
+      if (resp && resp.ok) {
         try {
           const json = await resp.json()
-          return (json.trips || []) as GuanabaraTrip[]
+          const trips = (json.trips || []) as GuanabaraTrip[]
+
+          for (const t of trips) {
+            const empresa = t.company || t.routes?.[0]?.company_name || "Guanabara"
+            const classe = t.class_of_service || t.routes?.[0]?.class_of_service_name || "Convencional"
+            const vagas = t.routes?.[0]?.available_seats ?? 2
+
+            const horarioPartida = t.origin?.date_time?.split("T")[1]?.slice(0, 5) || "N/A"
+            const horarioChegada = t.destination?.date_time?.split("T")[1]?.slice(0, 5) || "N/A"
+            const duracao = t.route_duration ? t.route_duration.slice(0, 5).replace(":", "h ") + "m" : "Direto"
+
+            // Verifica se a tarifa é gratuita (100% ID Jovem)
+            // Em viagens 100% gratuitas, fare = 0 (o usuário paga no máximo a taxa de embarque se houver)
+            const is100 = t.fare === 0 || (t.sub_total ?? 0) <= (t.boarding_fee ?? 0) || t.total === 0
+
+            totalVagasIdJovem += vagas
+
+            if (is100) {
+              const valorNum = t.total && t.total > 0 ? t.total : 0
+              const valorStr = valorNum > 0 ? `R$ ${valorNum.toFixed(2).replace(".", ",")}` : "R$ 0,00"
+
+              resultados.push({
+                empresa,
+                horario: horarioPartida,
+                chegada: horarioChegada,
+                duracao,
+                valor: valorStr,
+                valorNumerico: valorNum,
+                classe,
+                tipoGratuidade: "id_jovem_100",
+                vagasIdJovem: Math.min(vagas, 2),
+                poltronasLivres: vagas,
+                origem: `${origem} - ${origemUF}`,
+                destino: `${destino} - ${destinoUF}`,
+                data,
+                linkCompra: `${siteUrlBase}&passengers=13:1`,
+              })
+            } else {
+              const precoFinal = t.total ?? t.sub_total ?? (t.original_price ? t.original_price * 0.5 : 78.47)
+
+              resultados.push({
+                empresa,
+                horario: horarioPartida,
+                chegada: horarioChegada,
+                duracao,
+                valor: `R$ ${precoFinal.toFixed(2).replace(".", ",")}`,
+                valorNumerico: precoFinal,
+                classe,
+                tipoGratuidade: "id_jovem_50",
+                vagasIdJovem: Math.min(vagas, 2),
+                poltronasLivres: vagas,
+                origem: `${origem} - ${origemUF}`,
+                destino: `${destino} - ${destinoUF}`,
+                data,
+                linkCompra: `${siteUrlBase}&passengers=13:1`,
+              })
+            }
+          }
         } catch {
-          return []
+          // Erro ao parsear JSON
         }
-      }
-
-      const [trips100, trips50] = await Promise.all([
-        parseTrips(resp100, true),
-        parseTrips(resp50, false),
-      ])
-
-      const tripIdsVistos = new Set<string>()
-
-      // 1. Processa viagens 100% gratuitas primeiro (R$ 0,00)
-      for (const t of trips100) {
-        const idKey = `${t.trip_id}-${t.origin?.date_time}`
-        tripIdsVistos.add(idKey)
-        const empresa = t.company || t.routes?.[0]?.company_name || "Guanabara"
-        const classe = t.class_of_service || t.routes?.[0]?.class_of_service_name || "Convencional"
-        const vagas = t.routes?.[0]?.available_seats ?? 2
-
-        const horarioPartida = t.origin?.date_time?.split("T")[1]?.slice(0, 5) || "N/A"
-        const horarioChegada = t.destination?.date_time?.split("T")[1]?.slice(0, 5) || "N/A"
-        const duracao = t.route_duration ? t.route_duration.slice(0, 5).replace(":", "h ") + "m" : "Direto"
-
-        totalVagasIdJovem += vagas
-
-        resultados.push({
-          empresa,
-          horario: horarioPartida,
-          chegada: horarioChegada,
-          duracao,
-          valor: "R$ 0,00",
-          valorNumerico: 0,
-          classe,
-          tipoGratuidade: "id_jovem_100",
-          vagasIdJovem: Math.min(vagas, 2),
-          poltronasLivres: vagas,
-          origem: `${origem} - ${origemUF}`,
-          destino: `${destino} - ${destinoUF}`,
-          data,
-          linkCompra: `${siteUrlBase}&passengers=12:1`,
-        })
-      }
-
-      // 2. Processa viagens com 50% de desconto
-      for (const t of trips50) {
-        const idKey = `${t.trip_id}-${t.origin?.date_time}`
-        if (tripIdsVistos.has(idKey)) continue // Já tem 100% de desconto
-        tripIdsVistos.add(idKey)
-
-        const empresa = t.company || t.routes?.[0]?.company_name || "Guanabara"
-        const classe = t.class_of_service || t.routes?.[0]?.class_of_service_name || "Semi-Leito"
-        const vagas = t.routes?.[0]?.available_seats ?? 2
-
-        const horarioPartida = t.origin?.date_time?.split("T")[1]?.slice(0, 5) || "N/A"
-        const horarioChegada = t.destination?.date_time?.split("T")[1]?.slice(0, 5) || "N/A"
-        const duracao = t.route_duration ? t.route_duration.slice(0, 5).replace(":", "h ") + "m" : "Direto"
-
-        const precoFinal = t.total ?? t.sub_total ?? 78.47
-        totalVagasIdJovem += vagas
-
-        resultados.push({
-          empresa,
-          horario: horarioPartida,
-          chegada: horarioChegada,
-          duracao,
-          valor: `R$ ${precoFinal.toFixed(2).replace(".", ",")}`,
-          valorNumerico: precoFinal,
-          classe,
-          tipoGratuidade: "id_jovem_50",
-          vagasIdJovem: Math.min(vagas, 2),
-          poltronasLivres: vagas,
-          origem: `${origem} - ${origemUF}`,
-          destino: `${destino} - ${destinoUF}`,
-          data,
-          linkCompra: `${siteUrlBase}&passengers=13:1`,
-        })
       }
     } else {
       // Modo Geral: Consulta normal com passengers=1
