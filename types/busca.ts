@@ -55,7 +55,7 @@ export type ProvedorBusca =
   | "Embarca"
   | "AguiaBranca"
 
-export type StatusProvedor = "online" | "sem_oferta" | "inconclusivo" | "sem_cobertura" | "erro"
+export type StatusProvedor = "online" | "sem_oferta" | "inconclusivo" | "sem_cobertura" | "erro" | "consultando"
 
 export interface StatusProvedorBusca {
   provedor: string

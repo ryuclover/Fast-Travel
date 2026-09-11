@@ -17,9 +17,10 @@ export interface CompararIntervaloParams {
   idJovem?: boolean
   provedores?: ProvedorId[]
   maxConcorrencia?: number
+  timeoutMs?: number
 }
 
-const TIMEOUT_PROVEDOR_MS = 7_000
+const TIMEOUT_PROVEDOR_MS = 10_000
 
 function gerarListaDatas(dataInicio: string, dataFim: string): string[] {
   const inicio = new Date(`${dataInicio}T00:00:00`)
@@ -82,6 +83,7 @@ export async function compararPrecosIntervalo(
     idJovem = false,
     provedores = ["ClickBus", "Gontijo", "Guanabara", "Buser", "Embarca", "AguiaBranca"],
     maxConcorrencia = 1,
+    timeoutMs = TIMEOUT_PROVEDOR_MS,
   } = params
 
   const datas = gerarListaDatas(dataInicio, dataFim)
@@ -97,11 +99,13 @@ export async function compararPrecosIntervalo(
       const tarefasProvedores: Array<() => Promise<ScraperResult>> = obterAdaptadores(provedores, idJovem).map((adaptador) => () =>
         executarComTimeout(
           adaptador.consultar({ origem, origemUF, destino, destinoUF, dataIso, idJovem }),
-          TIMEOUT_PROVEDOR_MS
+          timeoutMs
         ).catch((err) => ({
           disponivel: false,
           vagasIdJovem: 0,
-          detalhes: `Erro ${adaptador.id}`,
+          detalhes: err?.message === "PROVIDER_TIMEOUT"
+            ? `${adaptador.id} demorou para responder nesta data.`
+            : `Consulta indisponível para ${adaptador.id}`,
           siteUrl: "",
           provedor: adaptador.id,
           dataConsultada: dataIso,

@@ -22,7 +22,7 @@ import { DateTimeline } from "./date-timeline"
 import { FiltersBar } from "./filters-bar"
 import { TripCard } from "./trip-card"
 import { IdJovemGuideModal } from "./id-jovem-guide-modal"
-import { CheckCircle2, CircleAlert, CircleOff, Radio } from "lucide-react"
+import { CheckCircle2, CircleAlert, CircleOff, Radio, Loader2 } from "lucide-react"
 
 interface ResultsContainerProps {
   resultado: ResultadoBusca
@@ -124,6 +124,7 @@ export function ResultsContainer({ resultado, idJovem }: ResultsContainerProps) 
     inconclusivo: "Consulta inconclusiva",
     sem_cobertura: "Sem cobertura",
     erro: "Erro",
+    consultando: "Consultando...",
   } as const
 
   const statusStyle = {
@@ -132,6 +133,7 @@ export function ResultsContainer({ resultado, idJovem }: ResultsContainerProps) 
     inconclusivo: "text-orange-300 border-orange-500/30 bg-orange-500/10",
     sem_cobertura: "text-slate-400 border-slate-500/30 bg-slate-500/10",
     erro: "text-red-400 border-red-500/30 bg-red-500/10",
+    consultando: "text-primary border-primary/30 bg-primary/10 animate-pulse",
   } as const
 
   const statusIcon = {
@@ -140,37 +142,41 @@ export function ResultsContainer({ resultado, idJovem }: ResultsContainerProps) 
     inconclusivo: CircleAlert,
     sem_cobertura: CircleOff,
     erro: CircleAlert,
+    consultando: Loader2,
   } as const
 
   return (
-    <section className="w-full max-w-5xl mx-auto space-y-6 mt-8">
-      {/* Cabeçalho de Rota e Metadados */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-card/60 border border-border/70 backdrop-blur-md">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider">
-            <Bus className="w-4 h-4" /> Resultado da Consulta
+    <section className="space-y-6 pt-4 animate-fade-in">
+      {/* Cabeçalho do Resultado */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl bg-card/40 border border-border/60 backdrop-blur-xl shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="space-y-1 relative z-10">
+          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full border border-primary/20 bg-primary/5 text-[11px] font-bold text-primary tracking-wide uppercase">
+            <Bus className="w-3 h-3" />
+            Resultado da Consulta
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-foreground flex items-center gap-2 flex-wrap">
             <span>{resultado.origem}</span>
-            <ArrowRight className="w-5 h-5 text-primary" />
+            <ArrowRight className="w-5 h-5 text-primary shrink-0" />
             <span>{resultado.destino}</span>
           </h2>
-        </div>
-
-        <div className="flex flex-col sm:items-end gap-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <IdJovemGuideModal />
-            <span className="text-xs font-bold px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/30">
-              {idJovem
-                ? `${todasPassagens.length} opção${todasPassagens.length !== 1 ? "ões" : ""} ID Jovem`
-                : `${todasPassagens.length} passagem${todasPassagens.length !== 1 ? "s" : ""} encontrada${todasPassagens.length !== 1 ? "s" : ""}`}
-            </span>
-          </div>
           {resultado.datasConsultadas && resultado.datasConsultadas.length > 1 && (
             <p className="text-xs text-muted-foreground">
               Intervalo pesquisado: {resultado.datasConsultadas.join(", ")}
             </p>
           )}
+        </div>
+
+        <div className="flex flex-col md:items-end gap-2 relative z-10">
+          <div className="flex items-center gap-2 flex-wrap">
+            <IdJovemGuideModal />
+            <span className="text-xs font-bold px-3.5 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/30 shadow-sm">
+              {idJovem
+                ? `${todasPassagens.length} opção${todasPassagens.length !== 1 ? "ões" : ""} ID Jovem`
+                : `${todasPassagens.length} passagem${todasPassagens.length !== 1 ? "s" : ""} encontrada${todasPassagens.length !== 1 ? "s" : ""}`}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -183,15 +189,16 @@ export function ResultsContainer({ resultado, idJovem }: ResultsContainerProps) 
           </div>
           <div className="flex flex-wrap gap-2">
             {resultado.statusProvedores.map((provedor) => {
-              const Icon = statusIcon[provedor.status]
+              const Icon = statusIcon[provedor.status] || CircleAlert
+              const isSpinning = provedor.status === "consultando"
               return (
                 <span
                   key={provedor.provedor}
                   title={provedor.detalhes}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold ${statusStyle[provedor.status]}`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold ${statusStyle[provedor.status] || statusStyle.inconclusivo}`}
                 >
-                  <Icon className="w-3.5 h-3.5" />
-                  {provedor.provedor}: {statusLabel[provedor.status]}
+                  <Icon className={`w-3.5 h-3.5 ${isSpinning ? "animate-spin" : ""}`} />
+                  {provedor.provedor}: {statusLabel[provedor.status] || provedor.status}
                 </span>
               )
             })}

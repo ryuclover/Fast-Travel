@@ -13,8 +13,7 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { SearchForm } from "@/components/search/search-form"
 import { ResultsContainer } from "@/components/results/results-container"
-import { ResultadoBusca } from "@/types/busca"
-import type { ProvedorBusca } from "@/types/busca"
+import { ResultadoBusca, StatusProvedorBusca, ProvedorBusca } from "@/types/busca"
 import {
   formatarDataParaExibicao,
   filtrarPassagensIdJovem,
@@ -70,74 +69,164 @@ export default function Home() {
 
     setErro("")
     setCarregando(true)
-    setResultado(null)
-    setProgresso(0)
+    setProgresso(10)
 
-    // Animação progressiva suave enquanto os provedores são consultados
-    const DURACAO_MS = 90_000
-    const INTERVALO_MS = 250
-    const PASSO = 95 / (DURACAO_MS / INTERVALO_MS)
-    progressoIntervalRef.current = setInterval(() => {
-      setProgresso((prev) => {
-        if (prev >= 95) {
-          if (progressoIntervalRef.current) clearInterval(progressoIntervalRef.current)
-          return 95
-        }
-        return Math.min(prev + PASSO, 95)
-      })
-    }, INTERVALO_MS)
+    const [ano, mes, dia] = dataInicio.split("-")
+    const dataFormatada = `${dia}/${mes}`
 
-    try {
+    // Gerar lista de datas consultadas
+    const datas: string[] = []
+    const cur = new Date(`${dataInicio}T00:00:00`)
+    const end = new Date(`${dataFim}T00:00:00`)
+    while (cur <= end) {
+      const [, m, d] = cur.toISOString().split("T")[0].split("-")
+      datas.push(`${d}/${m}`)
+      cur.setDate(cur.getDate() + 1)
+    }
+
+    // Inicializa todos os provedores selecionados com o estado 'consultando'
+    const statusIniciais: StatusProvedorBusca[] = provedoresSelecionados.map((p) => ({
+      provedor: p,
+      status: "consultando",
+      detalhes: `Consultando ${p}...`,
+    }))
+
+    // Define o esqueleto inicial com as badges de provedores em andamento
+    setResultado({
+      buscadoEm: new Date().toISOString(),
+      origem: `${origem} - ${origemUF}`,
+      destino: `${destino} - ${destinoUF}`,
+      dataSolicitada: dataFormatada,
+      datasConsultadas: datas,
+      passagensNaData: [],
+      passagensProximas: [],
+      totalEncontrado: 0,
+      statusProvedores: statusIniciais,
+      resumoPorDia: [],
+    })
+
+    // Variáveis de acumulação progressiva em tempo real
+    let passagensNaDataAcumuladas: any[] = []
+    let passagensProximasAcumuladas: any[] = []
+    let statusAcumulados = [...statusIniciais]
+    let resumosAcumulados: any[] = []
+    let totalConcluidos = 0
+
+    const promessasProvedores = provedoresSelecionados.map(async (provedor) => {
+      const idSlug = provedor.toLowerCase()
       const params = new URLSearchParams({
         origem,
+        origemUF,
         destino,
+        destinoUF,
         dataInicio,
         dataFim,
-        origemUF,
-        destinoUF,
         idJovem: idJovem ? "true" : "false",
-        provedores: provedoresSelecionados.join(","),
       })
 
-      const response = await fetch(`/api/buscar?${params}`)
-      const contentType = response.headers.get("content-type") || ""
-
-      if (!contentType.includes("application/json")) {
-        const errorText = await response.text()
-        if (response.status === 504 || response.status === 408) {
-          throw new Error("A consulta demorou muito para responder no servidor. Tente reduzir o intervalo de datas ou consultar menos provedores simultaneamente.")
+      try {
+        const response = await fetch(`/api/provedor/${idSlug}?${params}`)
+        if (!response.ok) {
+          throw new Error(`HTTP_${response.status}`)
         }
-        throw new Error(errorText.slice(0, 150) || "Erro inesperado do servidor.")
-      }
+        const dados = await response.json()
 
-      const dados = (await response.json()) as ResultadoBusca
+        const novasNaData = idJovem
+          ? filtrarPassagensIdJovem(dados.passagensNaData || [])
+          : dados.passagensNaData || []
+        const novasProximas = idJovem
+          ? filtrarPassagensIdJovem(dados.passagensProximas || [])
+          : dados.passagensProximas || []
 
-      if (!response.ok) {
-        throw new Error((dados as any).error || "Erro ao consultar provedores de passagem.")
-      }
+        passagensNaDataAcumuladas = [...passagensNaDataAcumuladas, ...novasNaData]
+        passagensProximasAcumuladas = [...passagensProximasAcumuladas, ...novasProximas]
 
-      const resultadoParaExibir = idJovem
-        ? {
-            ...dados,
-            passagensNaData: filtrarPassagensIdJovem(dados.passagensNaData ?? []),
-            passagensProximas: filtrarPassagensIdJovem(dados.passagensProximas ?? []),
+        // Atualiza status do provedor individual
+        statusAcumulados = statusAcumulados.map((s) =>
+          s.provedor === provedor
+            ? (dados.status || { provedor, status: "sem_oferta", detalhes: "" })
+            : s
+        )
+
+        // Mescla resumos de menor preço por dia
+        if (Array.isArray(dados.resumoPorDia)) {
+          for (const r of dados.resumoPorDia) {
+            const existente = resumosAcumulados.find((x) => x.data === r.data)
+            if (!existente) {
+              resumosAcumulados.push({ ...r })
+            } else {
+              existente.totalViagens += r.totalViagens
+              if (r.temIdJovem100) existente.temIdJovem100 = true
+              if (r.temIdJovem50) existente.temIdJovem50 = true
+              if (
+                r.menorValor != null &&
+                (existente.menorValor == null || r.menorValor < existente.menorValor)
+              ) {
+                existente.menorValor = r.menorValor
+                existente.empresaMenorValor = r.empresaMenorValor
+                existente.horarioMenorValor = r.horarioMenorValor
+              }
+            }
           }
-        : dados
+        }
+      } catch (err: any) {
+        statusAcumulados = statusAcumulados.map((s) =>
+          s.provedor === provedor
+            ? {
+                provedor,
+                status: "erro",
+                detalhes: `Falha ao consultar ${provedor}: ${err?.message || err}`,
+              }
+            : s
+        )
+      } finally {
+        totalConcluidos++
+        const percentual = 10 + Math.round((totalConcluidos / provedoresSelecionados.length) * 90)
+        setProgresso(percentual)
 
-      if (idJovem) {
-        resultadoParaExibir.totalEncontrado =
-          resultadoParaExibir.passagensNaData.length +
-          resultadoParaExibir.passagensProximas.length
+        // Recalcula menor preço e melhor data dinamicamente
+        let menorPrecoPeriodo: number | undefined = undefined
+        let melhorDataPeriodo: string | undefined = undefined
+        let empresaCampeaoPeriodo: string | undefined = undefined
+
+        const todas = [...passagensNaDataAcumuladas, ...passagensProximasAcumuladas]
+        for (const p of todas) {
+          const v = p.valorNumerico
+          if (v != null && v > 0) {
+            if (menorPrecoPeriodo == null || v < menorPrecoPeriodo) {
+              menorPrecoPeriodo = v
+              melhorDataPeriodo = p.data
+              empresaCampeaoPeriodo = p.empresa
+            }
+          }
+        }
+
+        // Renderiza as novas passagens na tela imediatamente
+        setResultado({
+          buscadoEm: new Date().toISOString(),
+          origem: `${origem} - ${origemUF}`,
+          destino: `${destino} - ${destinoUF}`,
+          dataSolicitada: dataFormatada,
+          datasConsultadas: datas,
+          passagensNaData: [...passagensNaDataAcumuladas],
+          passagensProximas: [...passagensProximasAcumuladas],
+          totalEncontrado:
+            passagensNaDataAcumuladas.length + passagensProximasAcumuladas.length,
+          statusProvedores: [...statusAcumulados],
+          resumoPorDia: [...resumosAcumulados],
+          menorPrecoPeriodo,
+          melhorDataPeriodo,
+          empresaCampeaoPeriodo,
+        })
       }
+    })
 
-      setProgresso(100)
-      setResultado(resultadoParaExibir)
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : "Erro ao consultar provedores.")
+    try {
+      await Promise.allSettled(promessasProvedores)
     } finally {
-      if (progressoIntervalRef.current) clearInterval(progressoIntervalRef.current)
+      setProgresso(100)
       setCarregando(false)
-      setTimeout(() => setProgresso(0), 600)
+      setTimeout(() => setProgresso(0), 500)
     }
   }
 
