@@ -211,9 +211,8 @@ export function parseMinutosHorario(horario?: string): number {
   return parseInt(match[1], 10) * 60 + parseInt(match[2], 10)
 }
 
-export function passagemIgnoradaNoIdJovem(empresa: string): boolean {
-  const norm = normalizarTexto(empresa)
-  return norm.includes("viaje com expresso ns penha")
+export function passagemIgnoradaNoIdJovem(_empresa: string): boolean {
+  return false
 }
 
 export function filtrarPassagensIdJovem<T extends { empresa: string; vagasIdJovem: number; vagasIdJovem100?: number }>(
@@ -221,7 +220,7 @@ export function filtrarPassagensIdJovem<T extends { empresa: string; vagasIdJove
 ): T[] {
   return passagens.filter(
     (p) =>
-      ((p.vagasIdJovem100 && p.vagasIdJovem100 > 0) || p.vagasIdJovem === 1 || p.vagasIdJovem === 2) &&
+      ((p.vagasIdJovem100 != null && p.vagasIdJovem100 > 0) || (p.vagasIdJovem != null && p.vagasIdJovem > 0)) &&
       !passagemIgnoradaNoIdJovem(p.empresa)
   )
 }

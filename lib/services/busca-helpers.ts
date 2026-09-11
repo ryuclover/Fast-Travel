@@ -144,7 +144,8 @@ export function converterItemParaPassagem(item: ResultItem, siteFallback = "Fast
     modalidadeGratuidade:
       item.linkCompra?.includes("viajeguanabara") ||
       item.linkCompra?.includes("embarca") ||
-      item.linkCompra?.includes("aguiabranca")
+      item.linkCompra?.includes("aguiabranca") ||
+      item.linkCompra?.includes("clickbus")
         ? "online"
         : "guiche",
     vagasIdJovem: item.vagasIdJovem ?? 0,
