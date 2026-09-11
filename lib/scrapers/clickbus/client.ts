@@ -286,15 +286,19 @@ async function converterTripsClickBus(
     return resultados
   }
 
-  // MODO ID JOVEM ESTRITO:
-  // Filtra apenas candidatas potenciais (Convencional ou hasGratuityCheckout)
+  // MODO ID JOVEM:
+  // Filtra candidatas potenciais (Convencional, Semi-Leito, Executivo ou hasGratuityCheckout)
   const candidatas = tripsFiltrados
     .filter((trip) => {
       const part = trip.parts?.[0] || trip
       const anttClass = (part.serviceClass?.name || trip.anttServiceClass?.name || "").toLowerCase()
-      const isConvencional = anttClass.includes("convencional")
+      const isElegivel =
+        anttClass.includes("convencional") ||
+        anttClass.includes("semi") ||
+        anttClass.includes("executivo") ||
+        !/(?<!semi[\s\-_]*)leito|cama/i.test(anttClass)
       const hasGratuity = trip.options?.hasGratuityCheckout === true || trip.options?.isGratuityTrip === true
-      return isConvencional || hasGratuity
+      return isElegivel || hasGratuity
     })
     .sort((a, b) => {
       // Prioriza quem explicitamente tem hasGratuityCheckout marcado pelo BFF
@@ -302,7 +306,7 @@ async function converterTripsClickBus(
       const bGrat = b.options?.hasGratuityCheckout === true ? 1 : 0
       return bGrat - aGrat
     })
-    .slice(0, 12) // Limita a 12 viagens mais prováveis para garantir resposta sub-5s
+    .slice(0, 15)
 
   // Consulta cotas reais das candidatas com deadline estrito de 4.5s
   const deadline = Date.now() + 4500

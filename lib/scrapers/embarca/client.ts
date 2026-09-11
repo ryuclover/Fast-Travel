@@ -136,8 +136,12 @@ function processarTripsEmbarca(
     const nomeClasse = t.seat_class || t.group || "Convencional"
     const poltronasLivres = t.available_seats ?? 0
 
-    // Buscar cota de 100% ID Jovem com vagas reais (> 0)
-    const cota100 = gratuityTypes.find((g: any) => {
+    // Buscar cota de 100% ID Jovem com vagas reais (> 0) ou flag de gratuidade elegível
+    const temStringElegivel = gratuityTypes.some(
+      (g: any) => typeof g === "string" && (g.includes("elegible") || g.includes("gratuity") || g.includes("free"))
+    )
+    const cota100Obj = gratuityTypes.find((g: any) => {
+      if (typeof g !== "object" || !g) return false
       const isIdJovem =
         g.category_id === 5 ||
         g.subcategory === "young_100" ||
@@ -147,7 +151,8 @@ function processarTripsEmbarca(
     })
 
     // Buscar cota de 50% ID Jovem com vagas reais (> 0)
-    const cota50 = gratuityTypes.find((g: any) => {
+    const cota50Obj = gratuityTypes.find((g: any) => {
+      if (typeof g !== "object" || !g) return false
       const isIdJovem =
         g.category_id === 6 ||
         g.subcategory === "young_50" ||
@@ -156,13 +161,15 @@ function processarTripsEmbarca(
       return isIdJovem && typeof vagas === "number" && vagas > 0
     })
 
-    // Se nenhuma cota comprovada de ID Jovem estiver livre, DESCARTA (zero falso positivo)
-    if (!cota100 && !cota50) continue
+    const isElegivelString = temStringElegivel && t.disable_gratuity === false
+    if (!cota100Obj && !cota50Obj && !isElegivelString) continue
 
     // 1. Cota ID Jovem 100%
-    if (cota100) {
-      const vagas100 = cota100.available_seats_quantity ?? cota100.available ?? 1
-      const taxa = cota100.total_price != null ? parseFloat(cota100.total_price) : 0
+    if (cota100Obj || isElegivelString) {
+      const vagas100 = cota100Obj
+        ? cota100Obj.available_seats_quantity ?? cota100Obj.available ?? 2
+        : 2
+      const taxa = cota100Obj?.total_price != null ? parseFloat(cota100Obj.total_price) : 0
       resultados.push({
         empresa,
         horario: partida,
@@ -182,11 +189,11 @@ function processarTripsEmbarca(
     }
 
     // 2. Cota ID Jovem 50%
-    if (cota50) {
-      const vagas50 = cota50.available_seats_quantity ?? cota50.available ?? 1
+    if (cota50Obj) {
+      const vagas50 = cota50Obj.available_seats_quantity ?? cota50Obj.available ?? 1
       const preco50 =
-        cota50.total_price != null
-          ? parseFloat(cota50.total_price)
+        cota50Obj.total_price != null
+          ? parseFloat(cota50Obj.total_price)
           : t.price
             ? Number(t.price) * 0.5
             : 0

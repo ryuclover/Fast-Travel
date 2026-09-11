@@ -19,10 +19,25 @@ function formatarDataBr(dataIso: string): string {
 /**
  * Consulta a API de localidades da Mobifácil para encontrar o slug correspondente à cidade e UF.
  */
+const STATIC_SLUGS_MOBIFACIL: Record<string, string> = {
+  "sao-paulo_SP": "sao-paulo-sp",
+  "rio-de-janeiro_RJ": "rio-de-janeiro-rj",
+  "curitiba_PR": "curitiba-pr",
+  "belo-horizonte_MG": "belo-horizonte-mg",
+  "campinas_SP": "campinas-sp",
+  "santos_SP": "santos-sp",
+  "sorocaba_SP": "sorocaba-sp",
+  "londrina_PR": "londrina-pr",
+  "maringa_PR": "maringa-pr",
+}
+
 async function resolverSlugMobifacil(cidade: string, uf: string, signal?: AbortSignal): Promise<string | null> {
   const chaveCache = `${normalizarNome(cidade)}_${uf.toUpperCase()}`
   if (slugCache.has(chaveCache)) {
     return slugCache.get(chaveCache)!
+  }
+  if (STATIC_SLUGS_MOBIFACIL[chaveCache]) {
+    return STATIC_SLUGS_MOBIFACIL[chaveCache]
   }
 
   const url = `https://www.mobifacil.com.br/on/demandware.store/Sites-Mobifacil-Site/pt_BR/Ticket-GetOrigins?search=${encodeURIComponent(
