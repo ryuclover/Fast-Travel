@@ -54,6 +54,7 @@ export type ProvedorBusca =
   | "Gontijo"
   | "Embarca"
   | "AguiaBranca"
+  | "Mobifacil"
 
 export type StatusProvedor = "online" | "sem_oferta" | "inconclusivo" | "sem_cobertura" | "erro" | "consultando"
 

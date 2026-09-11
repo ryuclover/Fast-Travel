@@ -45,6 +45,7 @@ const PROVEDORES_DISPONIVEIS = new Set([
   "Gontijo",
   "Embarca",
   "AguiaBranca",
+  "Mobifacil",
 ])
 const MS_POR_DIA = 24 * 60 * 60 * 1000
 const registrosRateLimit = new Map<string, RegistroRateLimit>()
@@ -253,7 +254,7 @@ export async function GET(request: NextRequest) {
       provedores:
         provedoresSelecionados.length > 0
           ? (provedoresSelecionados as Array<
-              "ClickBus" | "Guanabara" | "Buser" | "Gontijo" | "Embarca" | "AguiaBranca"
+              "ClickBus" | "Guanabara" | "Buser" | "Gontijo" | "Embarca" | "AguiaBranca" | "Mobifacil"
             >)
           : undefined,
       maxConcorrencia: 3,

@@ -81,7 +81,7 @@ export async function compararPrecosIntervalo(
     dataInicio,
     dataFim,
     idJovem = false,
-    provedores = ["ClickBus", "Gontijo", "Guanabara", "Buser", "Embarca", "AguiaBranca"],
+    provedores = ["ClickBus", "Gontijo", "Guanabara", "Buser", "Embarca", "AguiaBranca", "Mobifacil"],
     maxConcorrencia = 1,
     timeoutMs = TIMEOUT_PROVEDOR_MS,
   } = params

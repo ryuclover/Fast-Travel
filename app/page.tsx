@@ -38,6 +38,7 @@ export default function Home() {
     "Embarca",
     "Guanabara",
     "Gontijo",
+    "Mobifacil",
     "Buser",
   ])
   const [carregando, setCarregando] = useState(false)

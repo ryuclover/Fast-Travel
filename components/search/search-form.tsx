@@ -85,6 +85,7 @@ export function SearchForm({
     { id: "Embarca", nome: "Embarca.ai" },
     { id: "Guanabara", nome: "Guanabara / UTIL" },
     { id: "Gontijo", nome: "Gontijo" },
+    { id: "Mobifacil", nome: "Mobifácil" },
     { id: "Buser", nome: "Buser" },
   ]
 

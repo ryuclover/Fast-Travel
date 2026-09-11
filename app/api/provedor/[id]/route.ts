@@ -21,6 +21,7 @@ const MAPA_PROVEDORES: Record<string, ProvedorId> = {
   buser: "Buser",
   gontijo: "Gontijo",
   guanabara: "Guanabara",
+  mobifacil: "Mobifacil",
 }
 
 export async function GET(

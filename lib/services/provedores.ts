@@ -4,9 +4,10 @@ import { scrapeGuanabara } from "../scrapers/guanabara"
 import { scrapeBuser } from "../scrapers/buser"
 import { scrapeEmbarca } from "../scrapers/embarca"
 import { scrapeAguiaBranca } from "../scrapers/aguiabranca"
+import { scrapeMobifacil } from "../scrapers/mobifacil"
 import type { ScraperResult } from "../scrapers/types"
 
-export type ProvedorId = "ClickBus" | "Gontijo" | "Guanabara" | "Buser" | "Embarca" | "AguiaBranca"
+export type ProvedorId = "ClickBus" | "Guanabara" | "Buser" | "Gontijo" | "Embarca" | "AguiaBranca" | "Mobifacil"
 
 export interface ContextoProvedor {
   origem: string
@@ -59,6 +60,12 @@ export const adaptadoresProvedores: Record<ProvedorId, AdaptadorProvedor> = {
     suportaIdJovem: true,
     consultar: ({ origem, origemUF, destino, destinoUF, dataIso, idJovem }) =>
       scrapeAguiaBranca(origem, origemUF, destino, destinoUF, dataIso, idJovem),
+  },
+  Mobifacil: {
+    id: "Mobifacil",
+    suportaIdJovem: true,
+    consultar: ({ origem, origemUF, destino, destinoUF, dataIso, idJovem }) =>
+      scrapeMobifacil(origem, origemUF, destino, destinoUF, dataIso, idJovem),
   },
 }
 
