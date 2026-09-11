@@ -11,6 +11,8 @@ import {
   CheckCircle2,
   Building,
   Zap,
+  AlertTriangle,
+  Info,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Passagem } from "@/types/busca"
@@ -169,6 +171,24 @@ export function TripCard({ passagem, destaque }: TripCardProps) {
             </span>
           </div>
         </div>
+
+        {/* Alerta Anti-Pegadinha de Assento / Tarifa */}
+        {passagem.avisoAssento && (
+          <div
+            className={`p-2.5 rounded-xl border text-[11px] font-medium flex items-start gap-2 ${
+              passagem.avisoAssento.includes("⚠️")
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                : "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+            }`}
+          >
+            {passagem.avisoAssento.includes("⚠️") ? (
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400" />
+            ) : (
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5 text-emerald-400" />
+            )}
+            <span className="leading-snug">{passagem.avisoAssento}</span>
+          </div>
+        )}
 
         {/* Rodapé: Preço e Botão Reservar */}
         <div className="pt-3 border-t border-border/50 flex items-center justify-between gap-3">

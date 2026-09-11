@@ -1,6 +1,6 @@
 "use client"
 
-import { Zap, ExternalLink, Sparkles, CheckCircle2, Clock, Bus, ArrowRight } from "lucide-react"
+import { Zap, ExternalLink, Sparkles, CheckCircle2, Clock, Bus, ArrowRight, AlertTriangle } from "lucide-react"
 import { Passagem } from "@/types/busca"
 import { formatarDataBloco, obterDiaDaSemanaCompleto, formatarMoeda } from "@/lib/utils/formatters"
 
@@ -133,6 +133,23 @@ export function BestDealBanner({
               </span>
             )}
           </div>
+
+          {melhorPassagem?.avisoAssento && (
+            <div
+              className={`p-2.5 rounded-2xl border text-xs font-medium flex items-start gap-2 max-w-xl ${
+                melhorPassagem.avisoAssento.includes("⚠️")
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                  : "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+              }`}
+            >
+              {melhorPassagem.avisoAssento.includes("⚠️") ? (
+                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
+              )}
+              <span className="leading-snug">{melhorPassagem.avisoAssento}</span>
+            </div>
+          )}
         </div>
 
         {/* Lado Direito: Botões de Ação */}

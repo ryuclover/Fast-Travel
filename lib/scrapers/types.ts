@@ -13,6 +13,7 @@ export interface ResultItem {
   destino?: string
   data?: string
   linkCompra?: string
+  avisoAssento?: string
 }
 
 export interface ScraperResult {

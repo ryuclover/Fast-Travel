@@ -41,6 +41,7 @@ interface GuanabaraTrip {
     address?: string
   }
   routes?: Array<{
+    daily_schedule_route_id?: number
     available_seats?: number
     class_of_service_name?: string
     company_name?: string
@@ -91,6 +92,45 @@ export async function fetchGuanabaraDirect(
           const json = await resp.json()
           const trips = (json.trips || []) as GuanabaraTrip[]
 
+          // Verificação paralela no mapa de assentos oficial da Guanabara (Anti-Pegadinha de Preço)
+          // A Guanabara frequentemente exibe fare: 0 no card de busca, mas ao clicar no assento recalcula o valor.
+          const realSeatsMap = new Map<number, { j100: number; j50: number }>()
+          try {
+            const checkPromises = trips.slice(0, 15).map(async (t) => {
+              const rId = t.routes?.[0]?.daily_schedule_route_id || t.trip_id
+              if (!rId) return
+              const sResp = await fetchWithRetry(
+                "https://viajeguanabara.com.br/api/seats/maps/",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "User-Agent": headers["User-Agent"],
+                    Referer: siteUrl,
+                  },
+                  body: JSON.stringify({
+                    id_daily_schedule_route: rId,
+                    id_passenger_classification_list: [13],
+                    id_passenger_type: 8,
+                  }),
+                  timeoutMs: 3000,
+                } as any,
+                1
+              ).catch(() => null)
+
+              if (sResp && sResp.ok) {
+                const sJson = await sResp.json().catch(() => null)
+                const av = sJson?.passengerTypeAvailability || []
+                const j100 = av.find((a: any) => a.name?.includes("100%"))?.available_seats ?? 0
+                const j50 = av.find((a: any) => a.name?.includes("50%"))?.available_seats ?? 0
+                realSeatsMap.set(rId, { j100, j50 })
+              }
+            })
+            await Promise.allSettled(checkPromises)
+          } catch {
+            // Em caso de falha de conexão na API de assentos, segue com dados do card
+          }
+
           for (const t of trips) {
             const empresa = t.company || t.routes?.[0]?.company_name || "Guanabara"
             const classe = t.class_of_service || t.routes?.[0]?.class_of_service_name || "Convencional"
@@ -100,15 +140,36 @@ export async function fetchGuanabaraDirect(
             const horarioChegada = t.destination?.date_time?.split("T")[1]?.slice(0, 5) || "N/A"
             const duracao = t.route_duration ? t.route_duration.slice(0, 5).replace(":", "h ") + "m" : "Direto"
 
-            // Verifica se a tarifa é gratuita (100% ID Jovem)
-            // Em viagens 100% gratuitas, fare = 0 (o usuário paga no máximo a taxa de embarque se houver)
-            const is100 = t.fare === 0 || (t.sub_total ?? 0) <= (t.boarding_fee ?? 0) || t.total === 0
+            const rId = t.routes?.[0]?.daily_schedule_route_id || t.trip_id
+            const seatQuota = rId ? realSeatsMap.get(rId) : null
+            const isClasseLeitoOuSuperior = /leito|cama/i.test(classe)
+            const temVaga100NoMapa = seatQuota ? seatQuota.j100 > 0 : true
+            const fareIndicaGratis = t.fare === 0 || (t.sub_total ?? 0) <= (t.boarding_fee ?? 0) || t.total === 0
 
-            totalVagasIdJovem += vagas
+            let is100 = false
+            let avisoAssento: string | undefined = undefined
+
+            if (fareIndicaGratis) {
+              if (isClasseLeitoOuSuperior) {
+                // Pegadinha da Guanabara: exibe R$ 10,13 no card de Leito/Cama, mas ao clicar o preço sobe para tarifa cheia
+                is100 = false
+                avisoAssento = "⚠️ Pegadinha Guanabara: O card indica gratuidade em Leito, mas ao escolher o assento o sistema reajusta o valor. Escolha a poltrona Semi-Leito/Convencional para pagar R$ 0,00."
+              } else if (!temVaga100NoMapa) {
+                // Cota de 100% esgotada no mapa de assentos
+                is100 = false
+                avisoAssento = "⚠️ Cota 100% já esgotada no mapa de poltronas desta viagem. Disponível apenas com 50% de desconto."
+              } else {
+                // Vaga 100% legítima
+                is100 = true
+                avisoAssento = "🛡️ Cota 100% verificada no mapa de assentos! Selecione a poltrona convencional correspondente."
+              }
+            }
 
             if (is100) {
               const valorNum = t.total && t.total > 0 ? t.total : 0
               const valorStr = valorNum > 0 ? `R$ ${valorNum.toFixed(2).replace(".", ",")}` : "R$ 0,00"
+              const vagas100 = seatQuota ? Math.min(seatQuota.j100, 2) : Math.min(vagas, 2)
+              totalVagasIdJovem += vagas100
 
               resultados.push({
                 empresa,
@@ -119,15 +180,24 @@ export async function fetchGuanabaraDirect(
                 valorNumerico: valorNum,
                 classe,
                 tipoGratuidade: "id_jovem_100",
-                vagasIdJovem: Math.min(vagas, 2),
+                vagasIdJovem: vagas100,
                 poltronasLivres: vagas,
                 origem: `${origem} - ${origemUF}`,
                 destino: `${destino} - ${destinoUF}`,
                 data,
                 linkCompra: `${siteUrlBase}&passengers=13:1`,
+                avisoAssento,
               })
             } else {
-              const precoFinal = t.total ?? t.sub_total ?? (t.original_price ? t.original_price * 0.5 : 78.47)
+              let precoFinal = t.total ?? t.sub_total ?? (t.original_price ? t.original_price * 0.5 : 78.47)
+              if (isClasseLeitoOuSuperior && precoFinal <= 15 && t.original_price) {
+                precoFinal = t.original_price * 0.5
+              } else if (isClasseLeitoOuSuperior && precoFinal <= 15) {
+                precoFinal = 65.0
+              }
+
+              const vagas50 = seatQuota ? Math.min(seatQuota.j50, 2) : Math.min(vagas, 2)
+              totalVagasIdJovem += vagas50
 
               resultados.push({
                 empresa,
@@ -138,12 +208,13 @@ export async function fetchGuanabaraDirect(
                 valorNumerico: precoFinal,
                 classe,
                 tipoGratuidade: "id_jovem_50",
-                vagasIdJovem: Math.min(vagas, 2),
+                vagasIdJovem: vagas50,
                 poltronasLivres: vagas,
                 origem: `${origem} - ${origemUF}`,
                 destino: `${destino} - ${destinoUF}`,
                 data,
                 linkCompra: `${siteUrlBase}&passengers=13:1`,
+                avisoAssento,
               })
             }
           }

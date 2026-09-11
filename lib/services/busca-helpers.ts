@@ -21,6 +21,7 @@ export interface Passagem {
   vagasIdJovem: number
   vagasIdJovem100: number
   linkCompra: string
+  avisoAssento?: string
 }
 
 interface RegistroRateLimit {
@@ -154,5 +155,6 @@ export function converterItemParaPassagem(item: ResultItem, siteFallback = "Fast
         ? item.vagasIdJovem ?? 2
         : 0,
     linkCompra: item.linkCompra || "",
+    avisoAssento: item.avisoAssento,
   }
 }

@@ -17,6 +17,7 @@ export interface Passagem {
   vagasIdJovem: number
   vagasIdJovem100?: number
   linkCompra: string
+  avisoAssento?: string
 }
 
 export interface ResumoDia {
