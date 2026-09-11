@@ -111,7 +111,7 @@ export async function fetchGuanabaraDirect(
                   body: JSON.stringify({
                     id_daily_schedule_route: rId,
                     id_passenger_classification_list: [13],
-                    id_passenger_type: 8,
+                    id_passenger_type: 7,
                   }),
                   timeoutMs: 3000,
                 } as any,
@@ -144,7 +144,8 @@ export async function fetchGuanabaraDirect(
             const seatQuota = rId ? realSeatsMap.get(rId) : null
             // Apenas Leito puro, Leito Individual ou Cama são classes premium incompatíveis com gratuidade 100%. Semi-Leito é elegível!
             const isClasseLeitoOuSuperior = /(?<!semi[\s\-_]*)leito|cama/i.test(classe)
-            const temVaga100NoMapa = seatQuota ? seatQuota.j100 > 0 : true
+            // CUIDADO: Se o mapa de assentos não pôde ser verificado, NUNCA assumir 100%, pois a Guanabara exibe 'R$ 10,13' na busca mesmo quando só resta cota de 50% (que vira ~R$ 60 no carrinho)!
+            const temVaga100NoMapa = seatQuota ? seatQuota.j100 > 0 : false
             const fareIndicaGratis = t.fare === 0 || (t.sub_total ?? 0) <= (t.boarding_fee ?? 0) || t.total === 0
 
             let is100 = false
@@ -154,15 +155,20 @@ export async function fetchGuanabaraDirect(
               if (isClasseLeitoOuSuperior) {
                 // Pegadinha da Guanabara: exibe R$ 10,13 no card de Leito/Cama, mas ao clicar o preço sobe para tarifa cheia
                 is100 = false
-                avisoAssento = "⚠️ Pegadinha Guanabara: O card indica gratuidade em Leito, mas ao escolher o assento o sistema reajusta o valor. Escolha a poltrona Semi-Leito/Convencional para pagar R$ 0,00."
-              } else if (!temVaga100NoMapa) {
-                // Cota de 100% esgotada no mapa de assentos
+                avisoAssento = "⚠️ Pegadinha Guanabara: O card indica gratuidade em Leito, mas ao escolher o assento o sistema reajusta o valor para tarifa cheia."
+              } else if (seatQuota && seatQuota.j100 === 0) {
+                // Cota de 100% esgotada no mapa de assentos (resta apenas 50%)
                 is100 = false
-                avisoAssento = "⚠️ Cota 100% já esgotada no mapa de poltronas desta viagem. Disponível apenas com 50% de desconto."
-              } else {
-                // Vaga 100% legítima
+                avisoAssento = "⚠️ Cota 100% já esgotada no mapa de poltronas desta viagem. Valor real com 50% de desconto: ~R$ 60,00."
+              } else if (temVaga100NoMapa) {
+                // Vaga 100% legitimamente confirmada pelo mapa de assentos
                 is100 = true
-                avisoAssento = "🛡️ Cota 100% verificada no mapa de assentos! Selecione a poltrona convencional correspondente."
+                avisoAssento = "🛡️ Cota 100% confirmada no mapa de assentos! Selecione a poltrona convencional correspondente."
+              } else {
+                // Não foi possível validar o mapa de assentos (ex: Cloudflare 429 ou cota esgotada)
+                // A Guanabara engana na busca inicial colocando R$ 10,13 quando na verdade cobra 50% (~R$ 60)
+                is100 = false
+                avisoAssento = "⚠️ Atenção: A Guanabara exibe R$ 10,13 na listagem, mas ao clicar na poltrona a cota de 100% pode estar esgotada, cobrando 50% de desconto (~R$ 60,00)."
               }
             }
 
@@ -189,12 +195,13 @@ export async function fetchGuanabaraDirect(
                 linkCompra: `${siteUrlBase}&passengers=13:1`,
                 avisoAssento,
               })
-            } else {
-              let precoFinal = t.total ?? t.sub_total ?? (t.original_price ? t.original_price * 0.5 : 78.47)
-              if (isClasseLeitoOuSuperior && precoFinal <= 15 && t.original_price) {
-                precoFinal = t.original_price * 0.5
-              } else if (isClasseLeitoOuSuperior && precoFinal <= 15) {
-                precoFinal = 65.0
+              // Se não for 100%, qualquer valor <= R$ 15 exibido no card da Guanabara é pegadinha!
+              // O valor real pago na compra é 50% da tarifa + taxa de embarque (~R$ 60,00).
+              let precoFinal = t.total ?? t.sub_total ?? 60.0
+              if (precoFinal <= 15) {
+                const taxa = t.boarding_fee && t.boarding_fee > 0 ? t.boarding_fee : 10.13
+                const metadeTarifa = t.original_price ? t.original_price * 0.5 : 49.99
+                precoFinal = metadeTarifa + taxa
               }
 
               const vagas50 = seatQuota ? Math.min(seatQuota.j50, 2) : Math.min(vagas, 2)
