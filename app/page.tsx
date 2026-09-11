@@ -18,18 +18,19 @@ import type { ProvedorBusca } from "@/types/busca"
 import {
   formatarDataParaExibicao,
   filtrarPassagensIdJovem,
+  obterDataHojeLocal,
 } from "@/lib/utils/formatters"
 
 export default function Home() {
   const [origemSelecionada, setOrigemSelecionada] = useState("")
   const [destinoSelecionado, setDestinoSelecionado] = useState("")
-  const [dataInicio, setDataInicio] = useState(() => new Date().toISOString().split("T")[0])
+  const [dataInicio, setDataInicio] = useState(() => obterDataHojeLocal())
   const [dataInicioDisplay, setDataInicioDisplay] = useState(() =>
-    formatarDataParaExibicao(new Date().toISOString().split("T")[0])
+    formatarDataParaExibicao(obterDataHojeLocal())
   )
-  const [dataFim, setDataFim] = useState(() => new Date().toISOString().split("T")[0])
+  const [dataFim, setDataFim] = useState(() => obterDataHojeLocal())
   const [dataFimDisplay, setDataFimDisplay] = useState(() =>
-    formatarDataParaExibicao(new Date().toISOString().split("T")[0])
+    formatarDataParaExibicao(obterDataHojeLocal())
   )
   const [idJovem, setIdJovem] = useState(false)
   const [provedoresSelecionados, setProvedoresSelecionados] = useState<ProvedorBusca[]>([

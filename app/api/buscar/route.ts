@@ -124,7 +124,9 @@ function validarDataBusca(data: string): boolean {
     dataSolicitada.getUTCDate()
   )
 
-  return dataUtc >= hojeUtc && dataUtc <= maxUtc
+  // Tolerância de 1 dia para trás para cobrir fuso horário brasileiro (UTC-3) em relação a servidores UTC
+  const minPermitido = hojeUtc - MS_POR_DIA
+  return dataUtc >= minPermitido && dataUtc <= maxUtc
 }
 
 const cidadesPermitidas = new Set(

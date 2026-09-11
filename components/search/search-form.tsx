@@ -19,6 +19,8 @@ import {
   formatarDataParaExibicao,
   parseDataExibicao,
   montarLinkClickbus,
+  obterDataHojeLocal,
+  formatarDataIsoLocal,
 } from "@/lib/utils/formatters"
 import { ProgressIndicator } from "./progress-indicator"
 import type { ProvedorBusca } from "@/types/busca"
@@ -142,7 +144,7 @@ export function SearchForm({
     if (isNaN(base.getTime())) return
     const novaFim = new Date(base)
     novaFim.setDate(novaFim.getDate() + diasAdicionais)
-    const isoFim = novaFim.toISOString().split("T")[0]
+    const isoFim = formatarDataIsoLocal(novaFim)
     setDataFim(isoFim)
     setDataFimDisplay(formatarDataParaExibicao(isoFim))
   }
@@ -158,8 +160,8 @@ export function SearchForm({
     const proximoDomingo = new Date(proximaSexta)
     proximoDomingo.setDate(proximaSexta.getDate() + 2)
 
-    const isoSexta = proximaSexta.toISOString().split("T")[0]
-    const isoDomingo = proximoDomingo.toISOString().split("T")[0]
+    const isoSexta = formatarDataIsoLocal(proximaSexta)
+    const isoDomingo = formatarDataIsoLocal(proximoDomingo)
 
     setDataInicio(isoSexta)
     setDataInicioDisplay(formatarDataParaExibicao(isoSexta))
@@ -472,7 +474,7 @@ export function SearchForm({
                     setDataInicio(e.target.value)
                     setDataInicioDisplay(formatarDataParaExibicao(e.target.value))
                   }}
-                  min={new Date().toISOString().split("T")[0]}
+                  min={obterDataHojeLocal()}
                   className="absolute opacity-0 pointer-events-none w-px h-px"
                   aria-hidden="true"
                   tabIndex={-1}
@@ -508,7 +510,7 @@ export function SearchForm({
                     setDataFim(e.target.value)
                     setDataFimDisplay(formatarDataParaExibicao(e.target.value))
                   }}
-                  min={new Date().toISOString().split("T")[0]}
+                  min={obterDataHojeLocal()}
                   className="absolute opacity-0 pointer-events-none w-px h-px"
                   aria-hidden="true"
                   tabIndex={-1}

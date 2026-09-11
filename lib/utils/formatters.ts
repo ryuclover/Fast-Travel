@@ -61,7 +61,41 @@ export function formatarDataCompleta(dataStr: string): string {
   return `${dia} de ${mesNome}`
 }
 
+export function obterDataHojeLocal(): string {
+  const agora = new Date()
+  const ano = agora.getFullYear()
+  const mes = String(agora.getMonth() + 1).padStart(2, "0")
+  const dia = String(agora.getDate()).padStart(2, "0")
+  return `${ano}-${mes}-${dia}`
+}
+
+export function formatarDataIsoLocal(date: Date): string {
+  const ano = date.getFullYear()
+  const mes = String(date.getMonth() + 1).padStart(2, "0")
+  const dia = String(date.getDate()).padStart(2, "0")
+  return `${ano}-${mes}-${dia}`
+}
+
 export function parseDataExibicao(dataStr: string): string | null {
+  if (!dataStr) return null
+
+  // Formato ISO: YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) {
+    return dataStr
+  }
+
+  // Formato completo: DD/MM/YYYY
+  const matchCompleto = dataStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (matchCompleto) {
+    const [, dia, mes, anoStr] = matchCompleto
+    const diaNum = Number(dia)
+    const mesNum = Number(mes)
+    const anoNum = Number(anoStr)
+    if (diaNum < 1 || diaNum > 31 || mesNum < 1 || mesNum > 12) return null
+    return `${anoNum}-${String(mesNum).padStart(2, "0")}-${String(diaNum).padStart(2, "0")}`
+  }
+
+  // Formato curto: DD/MM (assume por padrão o ano atual da máquina do usuário)
   const match = dataStr.match(/^(\d{1,2})\/(\d{1,2})$/)
   if (!match) return null
 
