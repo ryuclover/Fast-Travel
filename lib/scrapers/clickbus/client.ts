@@ -169,7 +169,7 @@ async function checarCotasViagemClickBus(tripId: string): Promise<ClickBusCotasI
         accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "accept-language": "pt-BR,pt;q=0.9",
       },
-      signal: AbortSignal.timeout(4000),
+      signal: AbortSignal.timeout(1800),
     })
     if (!res.ok) return null
     const html = await res.text()
@@ -288,17 +288,27 @@ async function converterTripsClickBus(
 
   // MODO ID JOVEM ESTRITO:
   // Filtra apenas candidatas potenciais (Convencional ou hasGratuityCheckout)
-  const candidatas = tripsFiltrados.filter((trip) => {
-    const part = trip.parts?.[0] || trip
-    const anttClass = (part.serviceClass?.name || trip.anttServiceClass?.name || "").toLowerCase()
-    const isConvencional = anttClass.includes("convencional")
-    const hasGratuity = trip.options?.hasGratuityCheckout === true || trip.options?.isGratuityTrip === true
-    return isConvencional || hasGratuity
-  })
+  const candidatas = tripsFiltrados
+    .filter((trip) => {
+      const part = trip.parts?.[0] || trip
+      const anttClass = (part.serviceClass?.name || trip.anttServiceClass?.name || "").toLowerCase()
+      const isConvencional = anttClass.includes("convencional")
+      const hasGratuity = trip.options?.hasGratuityCheckout === true || trip.options?.isGratuityTrip === true
+      return isConvencional || hasGratuity
+    })
+    .sort((a, b) => {
+      // Prioriza quem explicitamente tem hasGratuityCheckout marcado pelo BFF
+      const aGrat = a.options?.hasGratuityCheckout === true ? 1 : 0
+      const bGrat = b.options?.hasGratuityCheckout === true ? 1 : 0
+      return bGrat - aGrat
+    })
+    .slice(0, 12) // Limita a 12 viagens mais prováveis para garantir resposta sub-5s
 
-  // Consulta cotas reais das candidatas em lotes paralelos (máximo 6 simultâneos para alta velocidade)
+  // Consulta cotas reais das candidatas com deadline estrito de 4.5s
+  const deadline = Date.now() + 4500
   const BATCH_SIZE = 6
   for (let i = 0; i < candidatas.length; i += BATCH_SIZE) {
+    if (Date.now() >= deadline) break
     const batch = candidatas.slice(i, i + BATCH_SIZE)
     const cotasBatch = await Promise.all(
       batch.map(async (trip) => {

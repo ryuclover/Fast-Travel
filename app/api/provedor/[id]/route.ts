@@ -103,6 +103,7 @@ export async function GET(
       idJovem,
       provedores: [provedor],
       maxConcorrencia: 2,
+      timeoutMs: 9000,
     })
 
     const passagensFormatadas = resultadoIntervalo.todasViagens.map((item) =>

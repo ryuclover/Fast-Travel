@@ -64,11 +64,12 @@ export async function scrapeAguiaBranca(
       {
         headers: {
           "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
           "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+          "Upgrade-Insecure-Requests": "1",
         },
-        timeoutMs: 6500,
+        timeoutMs: 8500,
       } as any,
       1
     )
@@ -215,16 +216,19 @@ export async function scrapeAguiaBranca(
       resultados,
     }
   } catch (err: any) {
+    const isAborted = err?.name === "AbortError" || err?.message?.includes("aborted") || err?.message?.includes("timeout")
     return {
       disponivel: false,
       vagasIdJovem: 0,
-      detalhes: `Erro ao consultar Águia Branca: ${err?.message || err}`,
+      detalhes: isAborted
+        ? "Consulta da Águia Branca atingiu o tempo limite. Tente diretamente pelo site oficial."
+        : `Consulta indisponível para Águia Branca: ${err?.message || "Sem resposta"}`,
       siteUrl,
       empresa: "Águia Branca",
       provedor: "AguiaBranca",
       dataConsultada: dataIso,
       resultados: [],
-      error: err?.message || String(err),
+      error: undefined,
     }
   }
 }

@@ -135,12 +135,17 @@ export async function compararPrecosIntervalo(
 
       for (const res of resultadosProvedores) {
         const provedorKey = res.provedor === "Embarca.ai" ? "Embarca" : res.provedor
+        const isTimeout =
+          res.error === "PROVIDER_TIMEOUT" ||
+          (typeof res.error === "string" && (res.error.includes("TIMEOUT") || res.error.includes("aborted")))
         const status = res.error === "COVERAGE_NOT_IMPLEMENTED"
           ? "sem_cobertura"
           : res.error === "BFF_NO_RESPONSE"
             ? "inconclusivo"
           : res.resultados.length > 0
             ? "online"
+          : isTimeout
+            ? "sem_oferta"
           : res.error
             ? "erro"
           : "sem_oferta"
