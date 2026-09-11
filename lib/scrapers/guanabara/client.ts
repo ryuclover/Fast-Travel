@@ -142,7 +142,8 @@ export async function fetchGuanabaraDirect(
 
             const rId = t.routes?.[0]?.daily_schedule_route_id || t.trip_id
             const seatQuota = rId ? realSeatsMap.get(rId) : null
-            const isClasseLeitoOuSuperior = /leito|cama/i.test(classe)
+            // Apenas Leito puro, Leito Individual ou Cama são classes premium incompatíveis com gratuidade 100%. Semi-Leito é elegível!
+            const isClasseLeitoOuSuperior = /(?<!semi[\s\-_]*)leito|cama/i.test(classe)
             const temVaga100NoMapa = seatQuota ? seatQuota.j100 > 0 : true
             const fareIndicaGratis = t.fare === 0 || (t.sub_total ?? 0) <= (t.boarding_fee ?? 0) || t.total === 0
 

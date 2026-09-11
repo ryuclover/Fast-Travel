@@ -82,8 +82,8 @@ export function ResultsContainer({
       if (passagens100.length > 0) {
         return passagens100.slice().sort((a, b) => {
           // Prioriza classes convencionais/semi-leito (evita a pegadinha da Guanabara que reajusta Leito para tarifa cheia no mapa)
-          const isLeitoA = /leito|cama/i.test(a.classe || "")
-          const isLeitoB = /leito|cama/i.test(b.classe || "")
+          const isLeitoA = /(?<!semi[\s\-_]*)leito|cama/i.test(a.classe || "")
+          const isLeitoB = /(?<!semi[\s\-_]*)leito|cama/i.test(b.classe || "")
           if (isLeitoA !== isLeitoB) return isLeitoA ? 1 : -1
 
           const valA = a.valorNumerico ?? parseValorPassagem(a.valor) ?? 0
